@@ -1,4 +1,7 @@
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from '@/lib/auth';
+import { createClient } from '@/lib/supabase/server';
+import { AccountsList } from '@/components/accounts-list';
+import { redirect } from 'next/navigation';
 
 /**
  * Страница управления счетами
@@ -7,15 +10,27 @@ import { requireAuth } from "@/lib/auth";
 export default async function AccountsPage() {
   await requireAuth();
 
+  const supabase = await createClient();
+
+  // Получаем список счетов пользователя
+  const { data: accounts, error } = await supabase
+    .from('accounts')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Ошибка загрузки счетов:', error);
+  }
+
   return (
     <div className="container mx-auto p-6">
-      <h1 className="mb-6 text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
-        Счета
-      </h1>
-      <p className="text-zinc-600 dark:text-zinc-400">
-        Управление счетами будет здесь
-      </p>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
+          Счета
+        </h1>
+      </div>
+
+      <AccountsList accounts={accounts || []} />
     </div>
   );
 }
-
