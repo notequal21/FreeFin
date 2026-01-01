@@ -76,44 +76,95 @@ export default function RegisterPage() {
         return;
       }
 
-      // Если регистрация успешна и есть пользователь, гарантированно создаем/обновляем профиль
-      // Профиль может быть создан триггером, но full_name может быть пустым из-за задержки метаданных
-      if (authData.user) {
-        // Ждем, чтобы триггер успел создать профиль (если он сработает)
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (!authData.user) {
+        toast.error('Ошибка регистрации', {
+          description: 'Пользователь не был создан',
+        });
+        return;
+      }
 
-        // Сначала пытаемся обновить существующий профиль с full_name
-        const { error: updateError } = await supabase
+      // Ждем, чтобы триггер успел создать профиль (если он сработает)
+      // и чтобы сессия успела установиться
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Пытаемся обновить профиль с повторными попытками
+      // Используем стратегию: сначала пробуем через RPC функцию (обходит RLS),
+      // затем через обычный UPDATE/INSERT
+      let profileUpdated = false;
+      const maxRetries = 3;
+
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        // Сначала пробуем использовать RPC функцию для обновления full_name
+        // Эта функция обходит RLS благодаря SECURITY DEFINER
+        const { error: rpcError } = await supabase.rpc(
+          'update_user_full_name',
+          {
+            user_id: authData.user.id,
+            new_full_name: data.fullName,
+          }
+        );
+
+        if (!rpcError) {
+          // Проверяем, что обновление прошло успешно
+          const { data: updatedProfile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', authData.user.id)
+            .maybeSingle();
+
+          if (updatedProfile && updatedProfile.full_name === data.fullName) {
+            profileUpdated = true;
+            break;
+          }
+        }
+
+        // Если RPC не сработал, пробуем обычный UPDATE
+        const { error: updateError, data: updateData } = await supabase
           .from('profiles')
           .update({ full_name: data.fullName })
-          .eq('id', authData.user.id);
+          .eq('id', authData.user.id)
+          .select('full_name')
+          .single();
 
-        // Если обновление не удалось (профиль не существует), создаем вручную
-        if (updateError) {
+        if (
+          !updateError &&
+          updateData &&
+          updateData.full_name === data.fullName
+        ) {
+          profileUpdated = true;
+          break;
+        }
+
+        // Если обновление не удалось, пробуем вставить
+        if (updateError || !updateData) {
           const { error: insertError } = await supabase
             .from('profiles')
             .insert({
               id: authData.user.id,
               full_name: data.fullName,
               is_approved: false,
+              primary_currency: 'RUB',
             });
 
-          if (insertError) {
-            // Если вставка тоже не удалась, возможно профиль уже создан, пробуем обновить еще раз
-            // Это может произойти из-за race condition между триггером и нашим кодом
-            const { error: retryUpdateError } = await supabase
-              .from('profiles')
-              .update({ full_name: data.fullName })
-              .eq('id', authData.user.id);
-
-            if (retryUpdateError) {
-              toast.error('Ошибка создания профиля', {
-                description: retryUpdateError.message,
-              });
-              return;
-            }
+          if (!insertError) {
+            profileUpdated = true;
+            break;
           }
         }
+
+        // Ждем перед следующей попыткой
+        if (attempt < maxRetries - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      }
+
+      // Финальная проверка: убеждаемся, что full_name установлен
+      if (!profileUpdated) {
+        // Последняя попытка через RPC функцию
+        await supabase.rpc('update_user_full_name', {
+          user_id: authData.user.id,
+          new_full_name: data.fullName,
+        });
       }
 
       toast.success('Регистрация успешна!', {

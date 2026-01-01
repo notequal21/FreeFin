@@ -309,3 +309,41 @@ CREATE TRIGGER calculate_converted_amount
   BEFORE INSERT OR UPDATE OF amount, exchange_rate ON public.transactions
   FOR EACH ROW
   EXECUTE FUNCTION public.calculate_converted_amount();
+
+-- Функция для обновления full_name в профиле пользователя
+-- Использует SECURITY DEFINER для обхода RLS, но проверяет, что пользователь обновляет только свой профиль
+-- Эта функция используется в коде регистрации для гарантированного обновления full_name
+CREATE OR REPLACE FUNCTION public.update_user_full_name(
+  user_id uuid,
+  new_full_name text
+)
+RETURNS void
+SECURITY DEFINER
+SET search_path = public
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  -- Проверяем, что пользователь обновляет только свой собственный профиль
+  IF auth.uid() IS NULL OR auth.uid() != user_id THEN
+    RAISE EXCEPTION 'Можно обновлять только свой собственный профиль';
+  END IF;
+  
+  -- Обновляем full_name в профиле, обходя RLS благодаря SECURITY DEFINER
+  UPDATE public.profiles
+  SET full_name = new_full_name,
+      updated_at = now()
+  WHERE id = user_id;
+  
+  -- Если профиль не существует, создаем его
+  IF NOT FOUND THEN
+    INSERT INTO public.profiles (id, full_name, primary_currency, is_approved)
+    VALUES (user_id, new_full_name, 'RUB', false)
+    ON CONFLICT (id) DO UPDATE
+    SET full_name = new_full_name,
+        updated_at = now();
+  END IF;
+END;
+$$;
+
+-- Предоставляем права на выполнение функции аутентифицированным пользователям
+GRANT EXECUTE ON FUNCTION public.update_user_full_name(uuid, text) TO authenticated;
