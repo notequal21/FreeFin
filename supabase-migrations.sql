@@ -36,7 +36,7 @@ BEGIN
   VALUES (
     NEW.id,
     COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
-    COALESCE(NEW.raw_user_meta_data->>'primary_currency', 'USD'),
+    COALESCE(NEW.raw_user_meta_data->>'primary_currency', 'RUB'),
     false
   )
   ON CONFLICT (id) DO NOTHING;

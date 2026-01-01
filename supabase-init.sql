@@ -34,7 +34,7 @@ DROP TABLE IF EXISTS public.profiles CASCADE;
 CREATE TABLE public.profiles (
   id uuid NOT NULL,
   full_name text,
-  primary_currency text DEFAULT 'USD' CHECK (primary_currency = ANY (ARRAY['USD', 'RUB'])),
+  primary_currency text DEFAULT 'RUB' CHECK (primary_currency = ANY (ARRAY['USD', 'RUB'])),
   is_approved boolean DEFAULT false,
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
@@ -286,6 +286,8 @@ CREATE POLICY "Users can manage counterparties if approved"
 -- Функция для автоматического создания профиля при регистрации
 -- SECURITY DEFINER позволяет функции обходить RLS при создании профиля
 -- Функция выполняется с правами создателя, поэтому RLS не применяется
+-- ВАЖНО: Метаданные могут быть недоступны в момент срабатывания триггера,
+-- поэтому full_name может быть пустым. Код регистрации обновит его после создания профиля.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 SECURITY DEFINER
@@ -294,11 +296,21 @@ LANGUAGE plpgsql
 AS $$
 BEGIN
   -- Вставляем профиль, обходя RLS благодаря SECURITY DEFINER
+  -- Пытаемся извлечь full_name из raw_user_meta_data или user_metadata
+  -- Если метаданные недоступны (что часто бывает), full_name будет пустым
+  -- и будет обновлен кодом регистрации после создания профиля
   INSERT INTO public.profiles (id, full_name, primary_currency, is_approved)
   VALUES (
     NEW.id,
-    COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
-    COALESCE(NEW.raw_user_meta_data->>'primary_currency', 'USD'),
+    COALESCE(
+      NEW.raw_user_meta_data->>'full_name',
+      (NEW.raw_user_meta_data->'full_name')::text,
+      ''
+    ),
+    COALESCE(
+      NEW.raw_user_meta_data->>'primary_currency',
+      'RUB'
+    ),
     false
   )
   ON CONFLICT (id) DO NOTHING;

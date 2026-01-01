@@ -76,20 +76,19 @@ export default function RegisterPage() {
         return;
       }
 
-      // Если регистрация успешна и есть пользователь, ждем создания профиля триггером
-      // Профиль создается автоматически триггером handle_new_user()
-      // Затем обновляем full_name, если профиль уже создан
+      // Если регистрация успешна и есть пользователь, гарантированно создаем/обновляем профиль
+      // Профиль может быть создан триггером, но full_name может быть пустым из-за задержки метаданных
       if (authData.user) {
-        // Ждем, чтобы триггер успел создать профиль
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        // Ждем, чтобы триггер успел создать профиль (если он сработает)
+        await new Promise((resolve) => setTimeout(resolve, 1000));
 
-        // Пытаемся обновить full_name в профиле (если он уже создан триггером)
+        // Сначала пытаемся обновить существующий профиль с full_name
         const { error: updateError } = await supabase
           .from('profiles')
           .update({ full_name: data.fullName })
           .eq('id', authData.user.id);
 
-        // Если профиль еще не создан (триггер не сработал), создаем вручную
+        // Если обновление не удалось (профиль не существует), создаем вручную
         if (updateError) {
           const { error: insertError } = await supabase
             .from('profiles')
@@ -100,10 +99,19 @@ export default function RegisterPage() {
             });
 
           if (insertError) {
-            toast.error('Ошибка создания профиля', {
-              description: insertError.message,
-            });
-            return;
+            // Если вставка тоже не удалась, возможно профиль уже создан, пробуем обновить еще раз
+            // Это может произойти из-за race condition между триггером и нашим кодом
+            const { error: retryUpdateError } = await supabase
+              .from('profiles')
+              .update({ full_name: data.fullName })
+              .eq('id', authData.user.id);
+
+            if (retryUpdateError) {
+              toast.error('Ошибка создания профиля', {
+                description: retryUpdateError.message,
+              });
+              return;
+            }
           }
         }
       }
@@ -115,7 +123,8 @@ export default function RegisterPage() {
       // Перенаправляем на главную страницу после успешной регистрации
       router.push('/');
       router.refresh();
-    } catch {
+    } catch (error) {
+      console.error('Registration error:', error);
       toast.error('Ошибка', {
         description: 'Произошла ошибка при регистрации',
       });
