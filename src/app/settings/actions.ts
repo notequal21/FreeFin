@@ -6,13 +6,22 @@ import { revalidatePath } from 'next/cache';
 
 // Схема валидации для обновления профиля
 const updateProfileSchema = z.object({
-  default_exchange_rate: z.coerce.number().positive('Курс должен быть положительным'),
+  full_name: z
+    .string()
+    .min(1, 'Имя не может быть пустым')
+    .max(255, 'Имя слишком длинное'),
+  primary_currency: z.enum(['USD', 'RUB'], {
+    message: 'Выберите валюту: USD или RUB',
+  }),
+  default_exchange_rate: z.coerce
+    .number()
+    .positive('Курс должен быть положительным'),
 });
 
 /**
- * Обновляет курс обмена по умолчанию в профиле пользователя
+ * Обновляет профиль пользователя (имя, валюту по умолчанию и курс обмена)
  */
-export async function updateDefaultExchangeRate(formData: FormData) {
+export async function updateProfile(formData: FormData) {
   try {
     const supabase = await createClient();
 
@@ -28,6 +37,8 @@ export async function updateDefaultExchangeRate(formData: FormData) {
 
     // Валидируем данные
     const rawData = {
+      full_name: formData.get('full_name') as string,
+      primary_currency: formData.get('primary_currency') as string,
       default_exchange_rate: formData.get('default_exchange_rate') as string,
     };
 
@@ -37,6 +48,8 @@ export async function updateDefaultExchangeRate(formData: FormData) {
     const { data, error } = await supabase
       .from('profiles')
       .update({
+        full_name: validatedData.full_name,
+        primary_currency: validatedData.primary_currency,
         default_exchange_rate: validatedData.default_exchange_rate,
         updated_at: new Date().toISOString(),
       })
@@ -54,7 +67,6 @@ export async function updateDefaultExchangeRate(formData: FormData) {
     if (error instanceof z.ZodError) {
       return { error: error.issues[0].message };
     }
-    return { error: 'Ошибка при обновлении курса' };
+    return { error: 'Ошибка при обновлении профиля' };
   }
 }
-

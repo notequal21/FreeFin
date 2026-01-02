@@ -19,19 +19,18 @@ import {
 import { ThemeToggle } from '@/components/theme-toggle';
 import { toast } from 'sonner';
 
-// Схема валидации для формы входа
-const signInSchema = z.object({
+// Схема валидации для запроса сброса пароля
+const resetPasswordSchema = z.object({
   email: z.string().email('Некорректный email адрес'),
-  password: z.string().min(6, 'Пароль должен содержать минимум 6 символов'),
 });
 
-type SignInFormData = z.infer<typeof signInSchema>;
+type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
 
 /**
- * Страница авторизации
- * Позволяет пользователю войти в систему
+ * Страница запроса сброса пароля
+ * Позволяет пользователю запросить сброс пароля по email
  */
-export default function AuthPage() {
+export default function ResetPasswordPage() {
   const router = useRouter();
   const supabase = createClient();
 
@@ -39,34 +38,39 @@ export default function AuthPage() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<SignInFormData>({
-    resolver: zodResolver(signInSchema),
+  } = useForm<ResetPasswordFormData>({
+    resolver: zodResolver(resetPasswordSchema),
   });
 
-  const onSubmit = async (data: SignInFormData) => {
+  const onSubmit = async (data: ResetPasswordFormData) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
+      // Получаем текущий URL для redirect после сброса пароля
+      const redirectTo = `${window.location.origin}/auth/reset-password/confirm`;
+
+      // Отправляем письмо с ссылкой для сброса пароля
+      const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
+        redirectTo,
       });
 
       if (error) {
-        toast.error('Ошибка входа', {
+        toast.error('Ошибка', {
           description: error.message,
         });
         return;
       }
 
-      toast.success('Успешный вход!', {
-        description: 'Добро пожаловать обратно',
+      // Показываем успешное сообщение (даже если email не существует, для безопасности)
+      toast.success('Письмо отправлено', {
+        description: 'Если аккаунт с таким email существует, на него будет отправлено письмо с инструкциями по сбросу пароля',
       });
 
-      // Перенаправляем на главную страницу после успешного входа
-      router.push('/');
-      router.refresh();
+      // Опционально: перенаправляем на страницу входа через несколько секунд
+      setTimeout(() => {
+        router.push('/auth');
+      }, 3000);
     } catch (err) {
       toast.error('Ошибка', {
-        description: 'Произошла ошибка при входе',
+        description: 'Произошла ошибка при отправке письма',
       });
     }
   };
@@ -78,9 +82,9 @@ export default function AuthPage() {
       </div>
       <Card className='w-full max-w-md'>
         <CardHeader>
-          <CardTitle>Вход в систему</CardTitle>
+          <CardTitle>Сброс пароля</CardTitle>
           <CardDescription>
-            Введите свои учетные данные для входа
+            Введите ваш email адрес, и мы отправим вам инструкции по сбросу пароля
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -100,41 +104,17 @@ export default function AuthPage() {
               )}
             </div>
 
-            <div className='space-y-2'>
-              <Label htmlFor='password'>Пароль</Label>
-              <Input
-                id='password'
-                type='password'
-                {...register('password')}
-                placeholder='••••••••'
-              />
-              {errors.password && (
-                <p className='text-sm text-destructive'>
-                  {errors.password.message}
-                </p>
-              )}
-            </div>
-
             <Button type='submit' disabled={isSubmitting} className='w-full'>
-              {isSubmitting ? 'Вход...' : 'Войти'}
+              {isSubmitting ? 'Отправка...' : 'Отправить инструкции'}
             </Button>
 
-            <div className='text-center'>
-              <Link
-                href='/auth/reset-password'
-                className='text-sm text-muted-foreground hover:text-primary hover:underline'
-              >
-                Забыли пароль?
-              </Link>
-            </div>
-
             <div className='text-center text-sm text-muted-foreground'>
-              Нет аккаунта?{' '}
+              Вспомнили пароль?{' '}
               <Link
-                href='/auth/register'
+                href='/auth'
                 className='font-medium text-primary hover:underline'
               >
-                Зарегистрироваться
+                Войти
               </Link>
             </div>
           </form>
@@ -143,3 +123,4 @@ export default function AuthPage() {
     </div>
   );
 }
+

@@ -17,7 +17,7 @@ export default async function SettingsPage() {
   if (auth?.user) {
     const { data } = await supabase
       .from('profiles')
-      .select('default_exchange_rate, primary_currency')
+      .select('full_name, default_exchange_rate, primary_currency')
       .eq('id', auth.user.id)
       .maybeSingle();
     
@@ -31,6 +31,7 @@ export default async function SettingsPage() {
       </h1>
       
       <SettingsForm 
+        fullName={profile?.full_name || null}
         defaultExchangeRate={profile?.default_exchange_rate || 100}
         primaryCurrency={profile?.primary_currency || 'RUB'}
       />
