@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -10,9 +11,19 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { ProjectFormDialog } from '@/components/project-form-dialog';
+import { getCompletedProjects, toggleProjectCompletion } from '@/app/projects/actions';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { Edit01Icon } from '@hugeicons/core-free-icons';
+import { Edit01Icon, Archive01Icon, Refresh01Icon } from '@hugeicons/core-free-icons';
+import { toast } from 'sonner';
 
 interface Counterparty {
   id: string;
@@ -38,8 +49,13 @@ interface ProjectsListProps {
  * Компонент списка проектов с возможностью создания и редактирования
  */
 export function ProjectsList({ projects }: ProjectsListProps) {
+  const router = useRouter();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [isCompletedProjectsDialogOpen, setIsCompletedProjectsDialogOpen] = useState(false);
+  const [completedProjects, setCompletedProjects] = useState<Project[]>([]);
+  const [isLoadingCompleted, setIsLoadingCompleted] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
   const handleEdit = (project: Project) => {
     setEditingProject(project);
@@ -49,11 +65,63 @@ export function ProjectsList({ projects }: ProjectsListProps) {
     setEditingProject(null);
   };
 
+  // Загрузка завершенных проектов
+  const loadCompletedProjects = async () => {
+    setIsLoadingCompleted(true);
+    const result = await getCompletedProjects();
+    if (result.error) {
+      toast.error('Ошибка', {
+        description: result.error,
+      });
+    } else if (result.data) {
+      setCompletedProjects(result.data);
+    }
+    setIsLoadingCompleted(false);
+  };
+
+  // Обработчик открытия модалки завершенных проектов
+  const handleOpenCompletedProjects = () => {
+    setIsCompletedProjectsDialogOpen(true);
+    if (completedProjects.length === 0) {
+      loadCompletedProjects();
+    }
+  };
+
+  // Обработчик возврата проекта из завершенных
+  const handleRestoreProject = async (projectId: string) => {
+    startTransition(async () => {
+      const result = await toggleProjectCompletion(projectId, false);
+      if (result.error) {
+        toast.error('Ошибка', {
+          description: result.error,
+        });
+      } else {
+        toast.success('Проект возвращен в активные');
+        // Обновляем список завершенных проектов
+        loadCompletedProjects();
+        // Обновляем страницу
+        router.refresh();
+      }
+    });
+  };
+
+  // Форматирование суммы
+  const formatAmount = (amount: number, currency: string) => {
+    return amount.toLocaleString('ru-RU', {
+      style: 'currency',
+      currency: currency,
+    });
+  };
+
   return (
     <>
-      <div className="mb-4">
+      <div className="mb-4 flex gap-2">
         <Button onClick={() => setIsCreateDialogOpen(true)}>
           Добавить проект
+        </Button>
+        <Button variant="outline" onClick={handleOpenCompletedProjects}>
+          <HugeiconsIcon icon={Archive01Icon} size={16} className="mr-2" />
+          Завершенные проекты
         </Button>
       </div>
 
@@ -131,6 +199,78 @@ export function ProjectsList({ projects }: ProjectsListProps) {
           counterparty_id: editingProject.counterparty_id,
         } : null}
       />
+
+      {/* Модалка завершенных проектов */}
+      <Dialog open={isCompletedProjectsDialogOpen} onOpenChange={setIsCompletedProjectsDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Завершенные проекты</DialogTitle>
+            <DialogDescription>
+              Список всех завершенных проектов. Вы можете вернуть проект в активные.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            {isLoadingCompleted ? (
+              <p className="text-center text-muted-foreground py-4">
+                Загрузка...
+              </p>
+            ) : completedProjects.length === 0 ? (
+              <p className="text-center text-muted-foreground py-4">
+                Нет завершенных проектов
+              </p>
+            ) : (
+              completedProjects.map((completedProject) => (
+                <Card key={completedProject.id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="font-medium text-zinc-900 dark:text-zinc-50 mb-1">
+                          {completedProject.title}
+                        </div>
+                        {completedProject.budget !== null && completedProject.currency && (
+                          <div className="text-sm text-zinc-600 dark:text-zinc-400 mb-1">
+                            Бюджет: {formatAmount(completedProject.budget, completedProject.currency)}
+                          </div>
+                        )}
+                        {completedProject.counterparties && (
+                          <div className="text-sm text-zinc-600 dark:text-zinc-400 mb-1">
+                            Контрагент: {completedProject.counterparties.name}
+                          </div>
+                        )}
+                        <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                          {new Date(completedProject.created_at).toLocaleDateString('ru-RU', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                          })}
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRestoreProject(completedProject.id)}
+                        disabled={isPending}
+                        className="ml-4"
+                      >
+                        <HugeiconsIcon icon={Refresh01Icon} size={16} className="mr-2" />
+                        Вернуть
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsCompletedProjectsDialogOpen(false)}
+            >
+              Закрыть
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -42,7 +42,7 @@ export default async function Home() {
     console.error("Ошибка загрузки счетов:", accountsError);
   }
 
-  // Получаем последние 10 проектов
+  // Получаем последние 10 активных проектов (is_completed = false)
   const { data: projects, error: projectsError } = await supabase
     .from("projects")
     .select(
@@ -55,6 +55,7 @@ export default async function Home() {
       )
     `
     )
+    .eq("is_completed", false)
     .order("created_at", { ascending: false })
     .limit(10);
 
@@ -62,10 +63,11 @@ export default async function Home() {
     console.error("Ошибка загрузки проектов:", projectsError);
   }
 
-  // Получаем общее количество проектов
+  // Получаем количество активных проектов (is_completed = false)
   const { count: projectsCount } = await supabase
     .from("projects")
-    .select("*", { count: "exact", head: true });
+    .select("*", { count: "exact", head: true })
+    .eq("is_completed", false);
 
   // Получаем последние 10 контрагентов
   const { data: counterparties, error: counterpartiesError } = await supabase

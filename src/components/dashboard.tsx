@@ -305,7 +305,7 @@ export function Dashboard({
             <div>
               <CardTitle>Проекты</CardTitle>
               <CardDescription>
-                Всего: {projectsCount}
+                Активных проектов: {projectsCount}
               </CardDescription>
             </div>
             <Link href="/projects">
@@ -482,8 +482,8 @@ export function Dashboard({
                         <span className="truncate">
                           {formatDate(transaction.created_at)}
                         </span>
-                        {/* Дата запланированной транзакции */}
-                        {transaction.scheduled_date && (
+                        {/* Дата запланированной транзакции (только для неподтвержденных) */}
+                        {transaction.scheduled_date && isScheduled && (
                           <>
                             <span className="text-zinc-400">•</span>
                             <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-amber-600 dark:bg-amber-950 dark:text-amber-400">

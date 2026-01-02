@@ -11,7 +11,7 @@ export default async function ProjectsPage() {
 
   const supabase = await createClient();
 
-  // Получаем список проектов пользователя с информацией о контрагентах
+  // Получаем только активные проекты (is_completed = false) с информацией о контрагентах
   const { data: projects, error } = await supabase
     .from('projects')
     .select(
@@ -24,6 +24,7 @@ export default async function ProjectsPage() {
       )
     `
     )
+    .eq('is_completed', false)
     .order('created_at', { ascending: false });
 
   if (error) {

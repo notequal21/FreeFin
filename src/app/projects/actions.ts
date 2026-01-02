@@ -21,6 +21,7 @@ const updateProjectSchema = z.object({
   currency: z.enum(['USD', 'RUB']).optional().nullable(),
   exchange_rate: z.coerce.number().positive().optional().nullable(),
   counterparty_id: z.string().uuid().nullable().optional(),
+  is_completed: z.coerce.boolean().optional(),
 });
 
 /**
@@ -106,6 +107,7 @@ export async function updateProject(formData: FormData) {
     const budgetValue = formData.get('budget') as string;
     const currencyValue = formData.get('currency') as string | null;
     const exchangeRateValue = formData.get('exchange_rate') as string;
+    const isCompletedValue = formData.get('is_completed') as string | null;
     const rawData = {
       id: formData.get('id') as string,
       title: formData.get('title') as string,
@@ -113,6 +115,7 @@ export async function updateProject(formData: FormData) {
       currency: currencyValue && currencyValue !== 'none' ? currencyValue : null,
       exchange_rate: exchangeRateValue && exchangeRateValue.trim() !== '' ? exchangeRateValue : null,
       counterparty_id: counterpartyId && counterpartyId !== 'none' ? counterpartyId : null,
+      is_completed: isCompletedValue === 'true' || isCompletedValue === 'on',
     };
 
     const validatedData = updateProjectSchema.parse(rawData);
@@ -127,6 +130,7 @@ export async function updateProject(formData: FormData) {
         currency: validatedData.budget ? (validatedData.currency || 'RUB') : null,
         exchange_rate: validatedData.exchange_rate || null,
         counterparty_id: validatedData.counterparty_id || null,
+        is_completed: validatedData.is_completed ?? false,
       })
       .eq('id', validatedData.id)
       .eq('user_id', user.id)
@@ -207,7 +211,7 @@ export async function getProjects() {
       return { error: 'Необходима аутентификация', data: null };
     }
 
-    // Получаем проекты с информацией о контрагенте
+    // Получаем только активные проекты (is_completed = false) с информацией о контрагенте
     const { data, error } = await supabase
       .from('projects')
       .select(
@@ -220,6 +224,7 @@ export async function getProjects() {
         )
       `
       )
+      .eq('is_completed', false)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -312,6 +317,93 @@ export async function getCounterparties() {
     return { data, success: true };
   } catch (error) {
     return { error: 'Ошибка при загрузке контрагентов', data: null };
+  }
+}
+
+/**
+ * Переключает статус завершения проекта
+ */
+export async function toggleProjectCompletion(projectId: string, isCompleted: boolean) {
+  try {
+    const supabase = await createClient();
+
+    // Проверяем аутентификацию
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return { error: 'Необходима аутентификация' };
+    }
+
+    // Валидируем ID
+    const validatedId = z.string().uuid().parse(projectId);
+
+    // Обновляем статус завершения проекта
+    const { data, error } = await supabase
+      .from('projects')
+      .update({ is_completed: isCompleted })
+      .eq('id', validatedId)
+      .eq('user_id', user.id)
+      .select()
+      .single();
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    revalidatePath('/projects');
+    revalidatePath(`/projects/${validatedId}`);
+    return { data, success: true };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { error: error.issues[0].message };
+    }
+    return { error: 'Ошибка при обновлении статуса проекта' };
+  }
+}
+
+/**
+ * Получает список завершенных проектов
+ */
+export async function getCompletedProjects() {
+  try {
+    const supabase = await createClient();
+
+    // Проверяем аутентификацию
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return { error: 'Необходима аутентификация', data: null };
+    }
+
+    // Получаем завершенные проекты (is_completed = true) с информацией о контрагенте
+    const { data, error } = await supabase
+      .from('projects')
+      .select(
+        `
+        *,
+        counterparties:counterparty_id (
+          id,
+          name,
+          type
+        )
+      `
+      )
+      .eq('is_completed', true)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return { error: error.message, data: null };
+    }
+
+    return { data, success: true };
+  } catch (error) {
+    return { error: 'Ошибка при загрузке завершенных проектов', data: null };
   }
 }
 

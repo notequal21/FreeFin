@@ -289,8 +289,8 @@ export function AccountDetails({ account, transactions }: AccountDetailsProps) {
                               minute: '2-digit',
                             })}
                           </span>
-                          {/* Дата запланированной транзакции */}
-                          {transaction.scheduled_date && (
+                          {/* Дата запланированной транзакции (только для неподтвержденных) */}
+                          {transaction.scheduled_date && isScheduled && (
                             <span className='inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-600 dark:bg-amber-950 dark:text-amber-400'>
                               <HugeiconsIcon icon={Calendar01Icon} size={10} />
                               {new Date(

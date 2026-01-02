@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/card';
 import { ProjectFormDialog } from '@/components/project-form-dialog';
 import { TransactionFormDialog } from '@/components/transaction-form-dialog';
-import { deleteProject } from '@/app/projects/actions';
+import { deleteProject, toggleProjectCompletion } from '@/app/projects/actions';
 import {
   getTransactionFormData,
   confirmScheduledTransaction,
@@ -33,6 +33,7 @@ import {
   ArrowLeft01Icon,
   Calendar01Icon,
   CheckmarkCircle01Icon,
+  Archive01Icon,
 } from '@hugeicons/core-free-icons';
 import { cn } from '@/lib/utils';
 import { useTransition } from 'react';
@@ -50,6 +51,7 @@ interface Project {
   currency: 'USD' | 'RUB' | null;
   exchange_rate: number | null;
   counterparty_id: string | null;
+  is_completed?: boolean;
   created_at: string;
   counterparties: Counterparty | null;
 }
@@ -336,6 +338,35 @@ export function ProjectDetails({
             </h1>
           </div>
           <div className='flex gap-2'>
+            {!project.is_completed && (
+              <Button
+                variant='outline'
+                onClick={async () => {
+                  startTransition(async () => {
+                    const result = await toggleProjectCompletion(
+                      project.id,
+                      true
+                    );
+                    if (result.error) {
+                      toast.error('Ошибка', {
+                        description: result.error,
+                      });
+                    } else {
+                      toast.success('Проект завершен');
+                      router.refresh();
+                    }
+                  });
+                }}
+                disabled={isPending}
+              >
+                <HugeiconsIcon
+                  icon={Archive01Icon}
+                  size={16}
+                  className='mr-2'
+                />
+                Завершить
+              </Button>
+            )}
             <Button variant='outline' onClick={() => setIsEditDialogOpen(true)}>
               <HugeiconsIcon icon={Edit01Icon} size={16} className='mr-2' />
               Редактировать
@@ -518,8 +549,8 @@ export function ProjectDetails({
                               day: 'numeric',
                             })}
                           </span>
-                          {/* Дата запланированной транзакции */}
-                          {transaction.scheduled_date && (
+                          {/* Дата запланированной транзакции (только для неподтвержденных) */}
+                          {transaction.scheduled_date && isScheduled && (
                             <span className='inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-600 dark:bg-amber-950 dark:text-amber-400'>
                               <HugeiconsIcon icon={Calendar01Icon} size={10} />
                               {new Date(
@@ -619,6 +650,7 @@ export function ProjectDetails({
           currency: project.currency,
           exchange_rate: project.exchange_rate,
           counterparty_id: project.counterparty_id,
+          is_completed: project.is_completed,
         }}
       />
 

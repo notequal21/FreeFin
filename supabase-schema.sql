@@ -46,6 +46,7 @@ CREATE TABLE public.projects (
   currency text CHECK (currency = ANY (ARRAY['USD', 'RUB'])), -- Валюта бюджета (NULL, если бюджет не указан)
   exchange_rate numeric CHECK (exchange_rate > 0), -- Курс обмена RUB/USD для проекта (NULL, если используется курс по умолчанию)
   counterparty_id uuid, -- Ссылка на контрагента (NULL, если контрагент не указан)
+  is_completed boolean DEFAULT false NOT NULL, -- Флаг завершения проекта (true, если проект завершен)
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT projects_pkey PRIMARY KEY (id),
   CONSTRAINT projects_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE,

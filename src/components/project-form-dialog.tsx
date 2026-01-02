@@ -55,6 +55,7 @@ const projectSchema = z.object({
     return isNaN(num) ? null : num;
   }).nullable().optional(),
   counterparty_id: z.string().uuid().nullable().optional(),
+  is_completed: z.boolean().optional(),
 }).refine((data) => {
   const hasBudget = data.budget !== null && data.budget !== undefined && data.budget !== '';
   const hasCurrency = data.currency !== null && data.currency !== undefined;
@@ -91,6 +92,7 @@ interface ProjectFormDialogProps {
     currency: 'USD' | 'RUB' | null;
     exchange_rate: number | null;
     counterparty_id: string | null;
+    is_completed?: boolean;
   } | null;
 }
 
@@ -113,6 +115,7 @@ export function ProjectFormDialog({
       currency: null,
       exchange_rate: null,
       counterparty_id: null,
+      is_completed: false,
     },
   });
 
@@ -138,6 +141,7 @@ export function ProjectFormDialog({
         currency: project.currency || null,
         exchange_rate: project.exchange_rate || null,
         counterparty_id: project.counterparty_id || null,
+        is_completed: project.is_completed || false,
       });
     } else {
       form.reset({
@@ -146,6 +150,7 @@ export function ProjectFormDialog({
         currency: null,
         exchange_rate: null,
         counterparty_id: null,
+        is_completed: false,
       });
     }
   }, [project, form]);
@@ -353,6 +358,7 @@ export function ProjectFormDialog({
                 </FormItem>
               )}
             />
+
 
             <DialogFooter>
               <Button
