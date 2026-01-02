@@ -93,6 +93,7 @@ interface DashboardProps {
   counterparties: Counterparty[];
   counterpartiesCount: number;
   transactions: Transaction[];
+  scheduledTransactions?: Transaction[];
   primaryCurrency: 'USD' | 'RUB';
   defaultExchangeRate: number;
 }
@@ -107,6 +108,7 @@ export function Dashboard({
   counterparties,
   counterpartiesCount,
   transactions,
+  scheduledTransactions = [],
   primaryCurrency,
   defaultExchangeRate,
 }: DashboardProps) {
@@ -170,9 +172,68 @@ export function Dashboard({
   }, 0);
 
   // Вычисляем общий баланс в USD для отображения
-  const totalBalanceUSD = primaryCurrency === 'USD'
-    ? totalBalance
-    : totalBalance / defaultExchangeRate;
+  const totalBalanceUSD =
+    primaryCurrency === 'USD'
+      ? totalBalance
+      : totalBalance / defaultExchangeRate;
+
+  // Рассчитываем дебиторку и кредиторку из запланированных транзакций
+  // Дебиторка = запланированные доходы (is_scheduled=true, type='income')
+  // Кредиторка = запланированные расходы (is_scheduled=true, type='expense')
+  // Логика конвертации:
+  // - converted_amount - сумма в валюте счета (primary_currency)
+  // - amount - сумма в валюте транзакции (если exchange_rate !== 1, то валюта транзакции != валюте счета)
+  const { receivables, payables } = scheduledTransactions.reduce(
+    (acc, transaction) => {
+      // Получаем валюту счета транзакции
+      const accountCurrency = transaction.accounts?.currency || primaryCurrency;
+
+      // Определяем валюту транзакции
+      // Если exchange_rate !== 1, то транзакция в валюте, отличной от валюты счета
+      const isTransactionInDifferentCurrency =
+        transaction.exchange_rate !== 1 && transaction.exchange_rate !== null;
+
+      // Валюта транзакции определяется так:
+      // - Если exchange_rate === 1, то валюта транзакции = валюта счета
+      // - Если exchange_rate !== 1, то валюта транзакции противоположна валюте счета
+      const transactionCurrency = isTransactionInDifferentCurrency
+        ? accountCurrency === 'RUB'
+          ? 'USD'
+          : 'RUB'
+        : accountCurrency;
+
+      let amountInPrimaryCurrency: number;
+
+      if (primaryCurrency === transactionCurrency) {
+        // Случай 1: primary_currency совпадает с валютой транзакции
+        // Используем amount напрямую (сумма уже в нужной валюте)
+        amountInPrimaryCurrency = transaction.amount;
+      } else {
+        // Случай 2: primary_currency отличается от валюты транзакции
+        // Нужно конвертировать из валюты транзакции в primary_currency
+        // Используем default_exchange_rate для конвертации
+        if (transactionCurrency === 'USD' && primaryCurrency === 'RUB') {
+          // Конвертируем USD -> RUB: умножаем на курс (сколько рублей за доллар)
+          amountInPrimaryCurrency = transaction.amount * defaultExchangeRate;
+        } else if (transactionCurrency === 'RUB' && primaryCurrency === 'USD') {
+          // Конвертируем RUB -> USD: делим на курс (сколько рублей за доллар)
+          amountInPrimaryCurrency = transaction.amount / defaultExchangeRate;
+        } else {
+          // Если валюты не совпадают с ожидаемыми, используем amount
+          amountInPrimaryCurrency = transaction.amount;
+        }
+      }
+
+      if (transaction.type === 'income') {
+        acc.receivables += amountInPrimaryCurrency;
+      } else if (transaction.type === 'expense') {
+        acc.payables += amountInPrimaryCurrency;
+      }
+
+      return acc;
+    },
+    { receivables: 0, payables: 0 }
+  );
 
   // Форматирование суммы
   const formatAmount = (amount: number, currency: string) => {
@@ -228,21 +289,22 @@ export function Dashboard({
   };
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div className='grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3'>
       {/* Общий баланс - большая карточка (занимает 2 колонки на больших экранах) */}
-      <Card className="md:col-span-2">
+      <Card className='md:col-span-2'>
         <CardHeader>
           <CardTitle>Общий баланс</CardTitle>
           <CardDescription>
-            Сумма всех ваших счетов в {primaryCurrency === 'RUB' ? 'рублях' : 'долларах'}
+            Сумма всех ваших счетов в{' '}
+            {primaryCurrency === 'RUB' ? 'рублях' : 'долларах'}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-baseline gap-2">
-            <div className="text-3xl font-bold text-zinc-900 dark:text-zinc-50">
+          <div className='flex items-baseline gap-2'>
+            <div className='text-3xl font-bold text-zinc-900 dark:text-zinc-50'>
               {formatAmount(totalBalance, primaryCurrency)}
             </div>
-            <div className="text-sm font-normal text-zinc-500 dark:text-zinc-400">
+            <div className='text-sm font-normal text-zinc-500 dark:text-zinc-400'>
               ≈ {formatAmount(totalBalanceUSD, 'USD')}
             </div>
           </div>
@@ -250,46 +312,52 @@ export function Dashboard({
       </Card>
 
       {/* Баланс по счетам */}
-      <Card className="md:col-span-1">
+      <Card className='md:col-span-1'>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className='flex items-center justify-between'>
             <div>
               <CardTitle>Счета</CardTitle>
-              <CardDescription>
-                Баланс по каждому счету
-              </CardDescription>
+              <CardDescription>Баланс по каждому счету</CardDescription>
             </div>
-            <Link href="/accounts">
-              <Button variant="outline" size="sm">
+            <Link href='/accounts'>
+              <Button variant='outline' size='sm'>
                 Все счета
-                <HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
+                <HugeiconsIcon
+                  icon={ArrowRight01Icon}
+                  size={16}
+                  className='ml-2'
+                />
               </Button>
             </Link>
           </div>
         </CardHeader>
         <CardContent>
           {accounts.length === 0 ? (
-            <p className="text-center text-muted-foreground py-4">
+            <p className='text-center text-muted-foreground py-4'>
               У вас пока нет счетов
             </p>
           ) : (
-            <div className="space-y-3">
+            <div className='space-y-3'>
               {accounts.map((account) => (
                 <Link
                   key={account.id}
                   href={`/accounts/${account.id}`}
-                  className="block"
+                  className='block'
                 >
-                  <div className="flex items-center justify-between rounded-lg border border-zinc-200 bg-white p-3 transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-950">
-                    <div className="flex-1">
-                      <div className="font-medium text-zinc-900 dark:text-zinc-50">
+                  <div className='flex items-center justify-between rounded-lg border border-zinc-200 bg-white p-3 transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-950'>
+                    <div className='flex-1'>
+                      <div className='font-medium text-zinc-900 dark:text-zinc-50'>
                         {account.name}
                       </div>
-                      <div className="text-sm text-zinc-600 dark:text-zinc-400">
+                      <div className='text-sm text-zinc-600 dark:text-zinc-400'>
                         {formatAmount(account.balance, account.currency)}
                       </div>
                     </div>
-                    <HugeiconsIcon icon={ArrowRight01Icon} size={20} className="text-zinc-400" />
+                    <HugeiconsIcon
+                      icon={ArrowRight01Icon}
+                      size={20}
+                      className='text-zinc-400'
+                    />
                   </div>
                 </Link>
               ))}
@@ -298,49 +366,89 @@ export function Dashboard({
         </CardContent>
       </Card>
 
-      {/* Проекты */}
-      <Card className="md:col-span-1">
+      {/* Дебиторка и кредиторка */}
+      <Card className='md:col-span-1'>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <CardTitle>Дебиторка и кредиторка</CardTitle>
+          <CardDescription>Запланированные операции</CardDescription>
+        </CardHeader>
+        <CardContent className='space-y-4'>
+          <div>
+            <p className='text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1'>
+              Дебиторка
+            </p>
+            <div className='text-xl font-bold text-emerald-600 dark:text-emerald-400'>
+              {formatAmount(receivables, primaryCurrency)}
+            </div>
+            <p className='text-xs text-zinc-500 dark:text-zinc-400 mt-0.5'>
+              Запланированные доходы
+            </p>
+          </div>
+          <div className='pt-2 border-t border-zinc-200 dark:border-zinc-800'>
+            <p className='text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1'>
+              Кредиторка
+            </p>
+            <div className='text-xl font-bold text-red-600 dark:text-red-400'>
+              {formatAmount(payables, primaryCurrency)}
+            </div>
+            <p className='text-xs text-zinc-500 dark:text-zinc-400 mt-0.5'>
+              Запланированные расходы
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Проекты */}
+      <Card className='md:col-span-1'>
+        <CardHeader>
+          <div className='flex items-center justify-between'>
             <div>
               <CardTitle>Проекты</CardTitle>
               <CardDescription>
                 Активных проектов: {projectsCount}
               </CardDescription>
             </div>
-            <Link href="/projects">
-              <Button variant="outline" size="sm">
+            <Link href='/projects'>
+              <Button variant='outline' size='sm'>
                 Все
-                <HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
+                <HugeiconsIcon
+                  icon={ArrowRight01Icon}
+                  size={16}
+                  className='ml-2'
+                />
               </Button>
             </Link>
           </div>
         </CardHeader>
         <CardContent>
           {projects.length === 0 ? (
-            <p className="text-center text-muted-foreground py-4 text-sm">
+            <p className='text-center text-muted-foreground py-4 text-sm'>
               Нет проектов
             </p>
           ) : (
-            <div className="space-y-2">
+            <div className='space-y-2'>
               {projects.slice(0, 5).map((project) => (
                 <Link
                   key={project.id}
                   href={`/projects/${project.id}`}
-                  className="block"
+                  className='block'
                 >
-                  <div className="flex items-center justify-between rounded-lg border border-zinc-200 bg-white p-3 transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-950">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-zinc-900 dark:text-zinc-50 truncate">
+                  <div className='flex items-center justify-between rounded-lg border border-zinc-200 bg-white p-3 transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-950'>
+                    <div className='flex-1 min-w-0'>
+                      <div className='font-medium text-zinc-900 dark:text-zinc-50 truncate'>
                         {project.title}
                       </div>
                       {project.budget !== null && project.currency && (
-                        <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
+                        <div className='text-xs text-zinc-600 dark:text-zinc-400 mt-0.5'>
                           {formatAmount(project.budget, project.currency)}
                         </div>
                       )}
                     </div>
-                    <HugeiconsIcon icon={ArrowRight01Icon} size={16} className="text-zinc-400 ml-2 flex-shrink-0" />
+                    <HugeiconsIcon
+                      icon={ArrowRight01Icon}
+                      size={16}
+                      className='text-zinc-400 ml-2 flex-shrink-0'
+                    />
                   </div>
                 </Link>
               ))}
@@ -350,46 +458,54 @@ export function Dashboard({
       </Card>
 
       {/* Контрагенты */}
-      <Card className="md:col-span-1">
+      <Card className='md:col-span-1'>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className='flex items-center justify-between'>
             <div>
               <CardTitle>Контрагенты</CardTitle>
-              <CardDescription>
-                Всего: {counterpartiesCount}
-              </CardDescription>
+              <CardDescription>Всего: {counterpartiesCount}</CardDescription>
             </div>
-            <Link href="/counterparties">
-              <Button variant="outline" size="sm">
+            <Link href='/counterparties'>
+              <Button variant='outline' size='sm'>
                 Все
-                <HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
+                <HugeiconsIcon
+                  icon={ArrowRight01Icon}
+                  size={16}
+                  className='ml-2'
+                />
               </Button>
             </Link>
           </div>
         </CardHeader>
         <CardContent>
           {counterparties.length === 0 ? (
-            <p className="text-center text-muted-foreground py-4 text-sm">
+            <p className='text-center text-muted-foreground py-4 text-sm'>
               Нет контрагентов
             </p>
           ) : (
-            <div className="space-y-2">
+            <div className='space-y-2'>
               {counterparties.slice(0, 5).map((counterparty) => (
                 <Link
                   key={counterparty.id}
                   href={`/counterparties/${counterparty.id}`}
-                  className="block"
+                  className='block'
                 >
-                  <div className="flex items-center justify-between rounded-lg border border-zinc-200 bg-white p-3 transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-950">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-zinc-900 dark:text-zinc-50 truncate">
+                  <div className='flex items-center justify-between rounded-lg border border-zinc-200 bg-white p-3 transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-950'>
+                    <div className='flex-1 min-w-0'>
+                      <div className='font-medium text-zinc-900 dark:text-zinc-50 truncate'>
                         {counterparty.name}
                       </div>
-                      <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
-                        {counterparty.type === 'client' ? 'Клиент' : 'Подрядчик'}
+                      <div className='text-xs text-zinc-600 dark:text-zinc-400 mt-0.5'>
+                        {counterparty.type === 'client'
+                          ? 'Клиент'
+                          : 'Подрядчик'}
                       </div>
                     </div>
-                    <HugeiconsIcon icon={ArrowRight01Icon} size={16} className="text-zinc-400 ml-2 flex-shrink-0" />
+                    <HugeiconsIcon
+                      icon={ArrowRight01Icon}
+                      size={16}
+                      className='text-zinc-400 ml-2 flex-shrink-0'
+                    />
                   </div>
                 </Link>
               ))}
@@ -399,30 +515,34 @@ export function Dashboard({
       </Card>
 
       {/* Последние транзакции - длинная карточка (занимает всю ширину на больших экранах) */}
-      <Card className="md:col-span-2 lg:col-span-3">
+      <Card className='md:col-span-2 lg:col-span-3'>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className='flex items-center justify-between'>
             <div>
               <CardTitle>Последние транзакции</CardTitle>
               <CardDescription>
                 Последние {transactions.length} транзакций
               </CardDescription>
             </div>
-            <Link href="/transactions">
-              <Button variant="outline" size="sm">
+            <Link href='/transactions'>
+              <Button variant='outline' size='sm'>
                 Все транзакции
-                <HugeiconsIcon icon={ArrowRight01Icon} size={16} className="ml-2" />
+                <HugeiconsIcon
+                  icon={ArrowRight01Icon}
+                  size={16}
+                  className='ml-2'
+                />
               </Button>
             </Link>
           </div>
         </CardHeader>
         <CardContent>
           {transactions.length === 0 ? (
-            <p className="text-center text-muted-foreground py-4">
+            <p className='text-center text-muted-foreground py-4'>
               У вас пока нет транзакций
             </p>
           ) : (
-            <div className="space-y-2">
+            <div className='space-y-2'>
               {transactions.slice(0, 5).map((transaction) => {
                 const Icon = getTransactionIcon(transaction.type);
                 const isNegative =
@@ -451,57 +571,60 @@ export function Dashboard({
                         getTransactionTypeColor(transaction.type)
                       )}
                     >
-                      <Icon className="h-4 w-4" />
+                      <Icon className='h-4 w-4' />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <div className="font-medium text-zinc-900 dark:text-zinc-50 truncate">
+                    <div className='flex-1 min-w-0'>
+                      <div className='flex items-center gap-2 flex-wrap'>
+                        <div className='font-medium text-zinc-900 dark:text-zinc-50 truncate'>
                           {transaction.description ||
                             transaction.categories?.name ||
                             'Без описания'}
                         </div>
                         {/* Лейбл запланированной транзакции */}
                         {isScheduled && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900 dark:text-amber-300 flex-shrink-0">
+                          <span className='inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900 dark:text-amber-300 flex-shrink-0'>
                             <HugeiconsIcon icon={Calendar01Icon} size={12} />
                             Запланировано
                           </span>
                         )}
                       </div>
-                      <div className="mt-0.5 flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400 flex-wrap">
+                      <div className='mt-0.5 flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400 flex-wrap'>
                         {transaction.accounts?.name && (
-                          <span className="truncate">{transaction.accounts.name}</span>
+                          <span className='truncate'>
+                            {transaction.accounts.name}
+                          </span>
                         )}
                         {transaction.projects?.title && (
                           <>
-                            <span className="text-zinc-400">•</span>
-                            <span className="truncate">{transaction.projects.title}</span>
+                            <span className='text-zinc-400'>•</span>
+                            <span className='truncate'>
+                              {transaction.projects.title}
+                            </span>
                           </>
                         )}
-                        <span className="text-zinc-400">•</span>
-                        <span className="truncate">
+                        <span className='text-zinc-400'>•</span>
+                        <span className='truncate'>
                           {formatDate(transaction.created_at)}
                         </span>
                         {/* Дата запланированной транзакции (только для неподтвержденных) */}
                         {transaction.scheduled_date && isScheduled && (
                           <>
-                            <span className="text-zinc-400">•</span>
-                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-amber-600 dark:bg-amber-950 dark:text-amber-400">
+                            <span className='text-zinc-400'>•</span>
+                            <span className='inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-amber-600 dark:bg-amber-950 dark:text-amber-400'>
                               <HugeiconsIcon icon={Calendar01Icon} size={10} />
-                              {new Date(transaction.scheduled_date).toLocaleDateString(
-                                'ru-RU',
-                                {
-                                  day: 'numeric',
-                                  month: 'short',
-                                }
-                              )}
+                              {new Date(
+                                transaction.scheduled_date
+                              ).toLocaleDateString('ru-RU', {
+                                day: 'numeric',
+                                month: 'short',
+                              })}
                             </span>
                           </>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <div className="text-right">
+                    <div className='flex items-center gap-2 flex-shrink-0'>
+                      <div className='text-right'>
                         {isDifferentCurrency ? (
                           <>
                             <div
@@ -518,7 +641,7 @@ export function Dashboard({
                                 transaction.accounts?.currency || 'RUB'
                               )}
                             </div>
-                            <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                            <div className='mt-0.5 text-xs text-zinc-500 dark:text-zinc-400'>
                               (
                               {formatAmount(
                                 Math.abs(transaction.amount),
@@ -547,18 +670,18 @@ export function Dashboard({
                         )}
                       </div>
                       {/* Кнопки действий */}
-                      <div className="flex items-center gap-1">
+                      <div className='flex items-center gap-1'>
                         {/* Кнопка подтверждения для запланированных транзакций */}
                         {isScheduled && (
                           <Button
-                            variant="default"
-                            size="icon"
+                            variant='default'
+                            size='icon'
                             onClick={() =>
                               handleConfirmScheduled(transaction.id)
                             }
                             disabled={isPending}
-                            className="h-8 w-8 bg-emerald-600 hover:bg-emerald-700 text-white"
-                            title="Подтвердить транзакцию"
+                            className='h-8 w-8 bg-emerald-600 hover:bg-emerald-700 text-white'
+                            title='Подтвердить транзакцию'
                           >
                             <HugeiconsIcon
                               icon={CheckmarkCircle01Icon}
@@ -568,11 +691,11 @@ export function Dashboard({
                         )}
                         {/* Кнопка редактирования */}
                         <Button
-                          variant="ghost"
-                          size="icon"
+                          variant='ghost'
+                          size='icon'
                           onClick={() => handleEditTransaction(transaction)}
-                          className="h-8 w-8"
-                          title="Редактировать транзакцию"
+                          className='h-8 w-8'
+                          title='Редактировать транзакцию'
                         >
                           <HugeiconsIcon icon={Edit01Icon} size={16} />
                         </Button>
@@ -604,4 +727,3 @@ export function Dashboard({
     </div>
   );
 }
-

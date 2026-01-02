@@ -185,6 +185,57 @@ export function CounterpartyDetails({
 
   const profit = stats.income - stats.expense;
 
+  // Рассчитываем дебиторку и кредиторку для контрагента из запланированных транзакций
+  // Дебиторка = запланированные доходы (is_scheduled=true, type='income')
+  // Кредиторка = запланированные расходы (is_scheduled=true, type='expense')
+  const { receivables, payables } = transactions.reduce(
+    (acc, transaction) => {
+      // Учитываем только запланированные транзакции
+      if (!transaction.is_scheduled) {
+        return acc;
+      }
+
+      // Получаем валюту счета транзакции
+      const accountCurrency = transaction.accounts?.currency || 'RUB';
+      
+      // Определяем валюту транзакции
+      const isTransactionInDifferentCurrency = 
+        transaction.exchange_rate !== 1 && 
+        transaction.exchange_rate !== null;
+      
+      const transactionCurrency = isTransactionInDifferentCurrency
+        ? (accountCurrency === 'RUB' ? 'USD' : 'RUB')
+        : accountCurrency;
+      
+      let amountInPrimaryCurrency: number;
+      
+      if (primaryCurrency === transactionCurrency) {
+        // Случай 1: primary_currency совпадает с валютой транзакции
+        amountInPrimaryCurrency = transaction.amount;
+      } else {
+        // Случай 2: primary_currency отличается от валюты транзакции
+        if (transactionCurrency === 'USD' && primaryCurrency === 'RUB') {
+          // Конвертируем USD -> RUB: умножаем на курс
+          amountInPrimaryCurrency = transaction.amount * defaultExchangeRate;
+        } else if (transactionCurrency === 'RUB' && primaryCurrency === 'USD') {
+          // Конвертируем RUB -> USD: делим на курс
+          amountInPrimaryCurrency = transaction.amount / defaultExchangeRate;
+        } else {
+          amountInPrimaryCurrency = transaction.amount;
+        }
+      }
+
+      if (transaction.type === 'income') {
+        acc.receivables += amountInPrimaryCurrency;
+      } else if (transaction.type === 'expense') {
+        acc.payables += amountInPrimaryCurrency;
+      }
+
+      return acc;
+    },
+    { receivables: 0, payables: 0 }
+  );
+
   // Загружаем данные для формы транзакции
   useEffect(() => {
     const loadFormData = async () => {
@@ -384,6 +435,42 @@ export function CounterpartyDetails({
                 }`}
               >
                 {profit.toLocaleString('ru-RU', {
+                  style: 'currency',
+                  currency: primaryCurrency,
+                })}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Дебиторка и кредиторка */}
+        <div className="mb-6 grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-medium">Дебиторка</CardTitle>
+              <CardDescription className="text-xs">
+                Запланированные доходы
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-semibold text-emerald-600 dark:text-emerald-400">
+                {receivables.toLocaleString('ru-RU', {
+                  style: 'currency',
+                  currency: primaryCurrency,
+                })}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-medium">Кредиторка</CardTitle>
+              <CardDescription className="text-xs">
+                Запланированные расходы
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-semibold text-red-600 dark:text-red-400">
+                {payables.toLocaleString('ru-RU', {
                   style: 'currency',
                   currency: primaryCurrency,
                 })}

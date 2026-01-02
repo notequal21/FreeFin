@@ -183,6 +183,33 @@ export function AccountDetails({ account, transactions }: AccountDetailsProps) {
     }
   };
 
+  // Рассчитываем дебиторку и кредиторку для счета из запланированных транзакций
+  // Дебиторка = запланированные доходы (is_scheduled=true, type='income')
+  // Кредиторка = запланированные расходы (is_scheduled=true, type='expense')
+  // Для счета используем converted_amount (сумма в валюте счета)
+  const { receivables, payables } = transactions.reduce(
+    (acc, transaction) => {
+      // Учитываем только запланированные транзакции
+      if (!transaction.is_scheduled) {
+        return acc;
+      }
+
+      // Используем converted_amount для получения суммы в валюте счета
+      // Если converted_amount не указан, используем amount
+      const amountInAccountCurrency =
+        transaction.converted_amount || transaction.amount;
+
+      if (transaction.type === 'income') {
+        acc.receivables += amountInAccountCurrency;
+      } else if (transaction.type === 'expense') {
+        acc.payables += amountInAccountCurrency;
+      }
+
+      return acc;
+    },
+    { receivables: 0, payables: 0 }
+  );
+
   return (
     <>
       <div className='container mx-auto p-6'>
@@ -234,6 +261,36 @@ export function AccountDetails({ account, transactions }: AccountDetailsProps) {
           <Link href={`/transactions/transfer?account_id=${account.id}`}>
             <Button variant='outline'>Создать перевод</Button>
           </Link>
+        </div>
+
+        {/* Дебиторка и кредиторка */}
+        <div className='mb-6 grid gap-4 md:grid-cols-2'>
+          <Card>
+            <CardHeader>
+              <CardTitle className='text-sm font-medium'>Дебиторка</CardTitle>
+              <CardDescription className='text-xs'>
+                Запланированные доходы
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className='text-2xl font-semibold text-emerald-600 dark:text-emerald-400'>
+                {formatAmount(receivables, account.currency)}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className='text-sm font-medium'>Кредиторка</CardTitle>
+              <CardDescription className='text-xs'>
+                Запланированные расходы
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className='text-2xl font-semibold text-red-600 dark:text-red-400'>
+                {formatAmount(payables, account.currency)}
+              </p>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Список транзакций */}

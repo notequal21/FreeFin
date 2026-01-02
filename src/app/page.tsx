@@ -85,7 +85,7 @@ export default async function Home() {
     .from("counterparties")
     .select("*", { count: "exact", head: true });
 
-  // Получаем последние 10 транзакций
+  // Получаем последние 10 транзакций для отображения
   const { data: transactions, error: transactionsError } = await supabase
     .from("transactions")
     .select(
@@ -117,6 +117,26 @@ export default async function Home() {
     console.error("Ошибка загрузки транзакций:", transactionsError);
   }
 
+  // Получаем все запланированные транзакции для расчета дебиторки и кредиторки
+  const { data: scheduledTransactions, error: scheduledTransactionsError } = await supabase
+    .from("transactions")
+    .select(
+      `
+      *,
+      accounts:account_id (
+        id,
+        name,
+        currency
+      )
+    `
+    )
+    .eq("is_scheduled", true)
+    .order("created_at", { ascending: false });
+
+  if (scheduledTransactionsError) {
+    console.error("Ошибка загрузки запланированных транзакций:", scheduledTransactionsError);
+  }
+
   return (
     <div className="container mx-auto p-6">
       <h1 className="mb-6 text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
@@ -129,6 +149,7 @@ export default async function Home() {
         counterparties={counterparties || []}
         counterpartiesCount={counterpartiesCount || 0}
         transactions={transactions || []}
+        scheduledTransactions={scheduledTransactions || []}
         primaryCurrency={primaryCurrency}
         defaultExchangeRate={defaultExchangeRate}
       />

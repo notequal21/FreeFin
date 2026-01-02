@@ -277,6 +277,62 @@ export function ProjectDetails({
 
   const profit = stats.income - stats.expense;
 
+  // Рассчитываем дебиторку и кредиторку для проекта из запланированных транзакций
+  // Дебиторка = запланированные доходы (is_scheduled=true, type='income')
+  // Кредиторка = запланированные расходы (is_scheduled=true, type='expense')
+  const { receivables, payables } = transactions.reduce(
+    (acc, transaction) => {
+      // Учитываем только запланированные транзакции
+      if (!transaction.is_scheduled) {
+        return acc;
+      }
+
+      // Получаем валюту счета транзакции
+      const accountCurrency = transaction.accounts?.currency || 'RUB';
+
+      // Определяем валюту транзакции
+      const isTransactionInDifferentCurrency =
+        transaction.exchange_rate !== 1 && transaction.exchange_rate !== null;
+
+      const transactionCurrency = isTransactionInDifferentCurrency
+        ? accountCurrency === 'RUB'
+          ? 'USD'
+          : 'RUB'
+        : accountCurrency;
+
+      // Получаем курс проекта (используем курс проекта, если указан, иначе курс по умолчанию)
+      const projectExchangeRate = project.exchange_rate || defaultExchangeRate;
+
+      let amountInProjectCurrency: number;
+
+      if (displayCurrency === transactionCurrency) {
+        // Валюта проекта совпадает с валютой транзакции
+        amountInProjectCurrency = transaction.amount;
+      } else {
+        // Валюта проекта отличается от валюты транзакции
+        // Нужно конвертировать из валюты транзакции в валюту проекта
+        if (transactionCurrency === 'USD' && displayCurrency === 'RUB') {
+          // Конвертируем USD -> RUB
+          amountInProjectCurrency = transaction.amount * projectExchangeRate;
+        } else if (transactionCurrency === 'RUB' && displayCurrency === 'USD') {
+          // Конвертируем RUB -> USD
+          amountInProjectCurrency = transaction.amount / projectExchangeRate;
+        } else {
+          amountInProjectCurrency = transaction.amount;
+        }
+      }
+
+      if (transaction.type === 'income') {
+        acc.receivables += amountInProjectCurrency;
+      } else if (transaction.type === 'expense') {
+        acc.payables += amountInProjectCurrency;
+      }
+
+      return acc;
+    },
+    { receivables: 0, payables: 0 }
+  );
+
   // Загружаем данные для формы транзакции
   useEffect(() => {
     const loadFormData = async () => {
@@ -492,6 +548,30 @@ export function ProjectDetails({
                   }`}
                 >
                   {formatAmount(profit, displayCurrency)}
+                </p>
+              </div>
+
+              <div className='pt-2 border-t border-zinc-200 dark:border-zinc-800'>
+                <p className='text-sm font-medium text-zinc-600 dark:text-zinc-400'>
+                  Дебиторка
+                </p>
+                <p className='text-lg font-semibold text-emerald-600 dark:text-emerald-400'>
+                  {formatAmount(receivables, displayCurrency)}
+                </p>
+                <p className='text-xs text-zinc-500 dark:text-zinc-400 mt-0.5'>
+                  Запланированные доходы
+                </p>
+              </div>
+
+              <div>
+                <p className='text-sm font-medium text-zinc-600 dark:text-zinc-400'>
+                  Кредиторка
+                </p>
+                <p className='text-lg font-semibold text-red-600 dark:text-red-400'>
+                  {formatAmount(payables, displayCurrency)}
+                </p>
+                <p className='text-xs text-zinc-500 dark:text-zinc-400 mt-0.5'>
+                  Запланированные расходы
                 </p>
               </div>
             </CardContent>
