@@ -1,5 +1,7 @@
 'use client';
 
+import { useState, useEffect, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
@@ -9,10 +11,21 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { TransactionFormDialog } from '@/components/transaction-form-dialog';
+import {
+  getTransactionFormData,
+  confirmScheduledTransaction,
+} from '@/app/transactions/actions';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { ArrowRight01Icon } from '@hugeicons/core-free-icons';
+import {
+  ArrowRight01Icon,
+  Calendar01Icon,
+  Edit01Icon,
+  CheckmarkCircle01Icon,
+} from '@hugeicons/core-free-icons';
 import { TrendingUp, TrendingDown, ArrowLeftRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 // Типы данных
 interface Account {
@@ -43,11 +56,16 @@ interface Project {
 interface Transaction {
   id: string;
   account_id: string;
+  category_id: string | null;
+  project_id: string | null;
+  counterparty_id: string | null;
   amount: number;
   exchange_rate: number;
   converted_amount: number;
   type: 'income' | 'expense' | 'withdrawal';
   description: string | null;
+  is_scheduled: boolean;
+  scheduled_date: string | null;
   created_at: string;
   accounts?: {
     id: string;
@@ -92,6 +110,49 @@ export function Dashboard({
   primaryCurrency,
   defaultExchangeRate,
 }: DashboardProps) {
+  const router = useRouter();
+  const [editingTransaction, setEditingTransaction] =
+    useState<Transaction | null>(null);
+  const [transactionFormData, setTransactionFormData] = useState<{
+    accounts: Array<{ id: string; name: string; currency: string }>;
+    categories: Array<{ id: string; name: string; type: string }>;
+    projects: Array<{ id: string; title: string }>;
+    counterparties: Array<{ id: string; name: string }>;
+    defaultExchangeRate?: number;
+    primaryCurrency?: string;
+  } | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  // Загружаем данные для формы транзакции
+  useEffect(() => {
+    const loadFormData = async () => {
+      const result = await getTransactionFormData();
+      if (result.data) {
+        setTransactionFormData(result.data);
+      }
+    };
+    loadFormData();
+  }, []);
+
+  // Обработчик редактирования транзакции
+  const handleEditTransaction = (transaction: Transaction) => {
+    setEditingTransaction(transaction);
+  };
+
+  // Обработчик подтверждения запланированной транзакции
+  const handleConfirmScheduled = (transactionId: string) => {
+    startTransition(async () => {
+      const result = await confirmScheduledTransaction(transactionId);
+      if (result.error) {
+        toast.error('Ошибка', {
+          description: result.error,
+        });
+      } else {
+        toast.success('Транзакция подтверждена');
+        router.refresh();
+      }
+    });
+  };
   // Вычисляем общий баланс в primary_currency
   const totalBalance = accounts.reduce((sum, account) => {
     if (account.currency === primaryCurrency) {
@@ -367,6 +428,7 @@ export function Dashboard({
                 const isNegative =
                   transaction.type === 'expense' ||
                   transaction.type === 'withdrawal';
+                const isScheduled = transaction.is_scheduled;
 
                 // Определяем, была ли транзакция в валюте, отличной от валюты счета
                 const isDifferentCurrency =
@@ -376,7 +438,12 @@ export function Dashboard({
                 return (
                   <div
                     key={transaction.id}
-                    className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900"
+                    className={cn(
+                      'flex items-center gap-3 rounded-lg border p-3 transition-colors',
+                      isScheduled
+                        ? 'border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/10'
+                        : 'border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900'
+                    )}
                   >
                     <div
                       className={cn(
@@ -387,12 +454,21 @@ export function Dashboard({
                       <Icon className="h-4 w-4" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium text-zinc-900 dark:text-zinc-50 truncate">
-                        {transaction.description ||
-                          transaction.categories?.name ||
-                          'Без описания'}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="font-medium text-zinc-900 dark:text-zinc-50 truncate">
+                          {transaction.description ||
+                            transaction.categories?.name ||
+                            'Без описания'}
+                        </div>
+                        {/* Лейбл запланированной транзакции */}
+                        {isScheduled && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900 dark:text-amber-300 flex-shrink-0">
+                            <HugeiconsIcon icon={Calendar01Icon} size={12} />
+                            Запланировано
+                          </span>
+                        )}
                       </div>
-                      <div className="mt-0.5 flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+                      <div className="mt-0.5 flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400 flex-wrap">
                         {transaction.accounts?.name && (
                           <span className="truncate">{transaction.accounts.name}</span>
                         )}
@@ -406,11 +482,54 @@ export function Dashboard({
                         <span className="truncate">
                           {formatDate(transaction.created_at)}
                         </span>
+                        {/* Дата запланированной транзакции */}
+                        {transaction.scheduled_date && (
+                          <>
+                            <span className="text-zinc-400">•</span>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-amber-600 dark:bg-amber-950 dark:text-amber-400">
+                              <HugeiconsIcon icon={Calendar01Icon} size={10} />
+                              {new Date(transaction.scheduled_date).toLocaleDateString(
+                                'ru-RU',
+                                {
+                                  day: 'numeric',
+                                  month: 'short',
+                                }
+                              )}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      {isDifferentCurrency ? (
-                        <>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="text-right">
+                        {isDifferentCurrency ? (
+                          <>
+                            <div
+                              className={cn(
+                                'font-medium text-sm',
+                                isNegative
+                                  ? 'text-red-600 dark:text-red-400'
+                                  : 'text-emerald-600 dark:text-emerald-400'
+                              )}
+                            >
+                              {isNegative ? '-' : '+'}
+                              {formatAmount(
+                                Math.abs(transaction.converted_amount || 0),
+                                transaction.accounts?.currency || 'RUB'
+                              )}
+                            </div>
+                            <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                              (
+                              {formatAmount(
+                                Math.abs(transaction.amount),
+                                transaction.accounts?.currency === 'RUB'
+                                  ? 'USD'
+                                  : 'RUB'
+                              )}
+                              )
+                            </div>
+                          </>
+                        ) : (
                           <div
                             className={cn(
                               'font-medium text-sm',
@@ -421,37 +540,43 @@ export function Dashboard({
                           >
                             {isNegative ? '-' : '+'}
                             {formatAmount(
-                              Math.abs(transaction.converted_amount || 0),
+                              Math.abs(transaction.amount),
                               transaction.accounts?.currency || 'RUB'
                             )}
                           </div>
-                          <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                            (
-                            {formatAmount(
-                              Math.abs(transaction.amount),
-                              transaction.accounts?.currency === 'RUB'
-                                ? 'USD'
-                                : 'RUB'
-                            )}
-                            )
-                          </div>
-                        </>
-                      ) : (
-                        <div
-                          className={cn(
-                            'font-medium text-sm',
-                            isNegative
-                              ? 'text-red-600 dark:text-red-400'
-                              : 'text-emerald-600 dark:text-emerald-400'
-                          )}
+                        )}
+                      </div>
+                      {/* Кнопки действий */}
+                      <div className="flex items-center gap-1">
+                        {/* Кнопка подтверждения для запланированных транзакций */}
+                        {isScheduled && (
+                          <Button
+                            variant="default"
+                            size="icon"
+                            onClick={() =>
+                              handleConfirmScheduled(transaction.id)
+                            }
+                            disabled={isPending}
+                            className="h-8 w-8 bg-emerald-600 hover:bg-emerald-700 text-white"
+                            title="Подтвердить транзакцию"
+                          >
+                            <HugeiconsIcon
+                              icon={CheckmarkCircle01Icon}
+                              size={16}
+                            />
+                          </Button>
+                        )}
+                        {/* Кнопка редактирования */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEditTransaction(transaction)}
+                          className="h-8 w-8"
+                          title="Редактировать транзакцию"
                         >
-                          {isNegative ? '-' : '+'}
-                          {formatAmount(
-                            Math.abs(transaction.amount),
-                            transaction.accounts?.currency || 'RUB'
-                          )}
-                        </div>
-                      )}
+                          <HugeiconsIcon icon={Edit01Icon} size={16} />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -460,6 +585,22 @@ export function Dashboard({
           )}
         </CardContent>
       </Card>
+
+      {/* Модалка редактирования транзакции */}
+      {transactionFormData && editingTransaction && (
+        <TransactionFormDialog
+          open={!!editingTransaction}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditingTransaction(null);
+              // Обновляем страницу после редактирования транзакции
+              router.refresh();
+            }
+          }}
+          transaction={editingTransaction}
+          formData={transactionFormData}
+        />
+      )}
     </div>
   );
 }

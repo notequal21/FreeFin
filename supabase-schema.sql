@@ -356,6 +356,7 @@ BEGIN
   -- Пересчитываем баланс счета на основе всех транзакций
   -- ВАЖНО: Используем converted_amount (сумма в валюте счета), а не amount (сумма в валюте транзакции)
   -- income увеличивает баланс, expense и withdrawal уменьшают
+  -- ИСКЛЮЧАЕМ запланированные транзакции (is_scheduled = true) из расчета баланса
   UPDATE public.accounts
   SET balance = COALESCE((
     SELECT SUM(
@@ -367,11 +368,13 @@ BEGIN
     )
     FROM public.transactions
     WHERE account_id = target_account_id
+      AND is_scheduled = false  -- Исключаем запланированные транзакции
   ), 0)
   WHERE id = target_account_id;
 
   -- При UPDATE также нужно обновить баланс старого счета (если account_id изменился)
   -- ВАЖНО: Используем converted_amount (сумма в валюте счета), а не amount (сумма в валюте транзакции)
+  -- ИСКЛЮЧАЕМ запланированные транзакции (is_scheduled = true) из расчета баланса
   IF TG_OP = 'UPDATE' AND OLD.account_id != NEW.account_id THEN
     UPDATE public.accounts
     SET balance = COALESCE((
@@ -384,6 +387,7 @@ BEGIN
       )
       FROM public.transactions
       WHERE account_id = OLD.account_id
+        AND is_scheduled = false  -- Исключаем запланированные транзакции
     ), 0)
     WHERE id = OLD.account_id;
   END IF;
@@ -398,10 +402,11 @@ END;
 $$;
 
 -- Триггер: автоматически обновляет баланс счета при изменении транзакций
--- ВАЖНО: Триггер должен срабатывать при изменении amount, exchange_rate, type, account_id
+-- ВАЖНО: Триггер должен срабатывать при изменении amount, exchange_rate, type, account_id, is_scheduled
 -- так как изменение exchange_rate пересчитывает converted_amount, что влияет на баланс
+-- изменение is_scheduled необходимо для пересчета баланса при подтверждении запланированной транзакции
 CREATE TRIGGER update_account_balance
-  AFTER INSERT OR UPDATE OF amount, exchange_rate, type, account_id OR DELETE ON public.transactions
+  AFTER INSERT OR UPDATE OF amount, exchange_rate, type, account_id, is_scheduled OR DELETE ON public.transactions
   FOR EACH ROW
   EXECUTE FUNCTION public.update_account_balance();
 

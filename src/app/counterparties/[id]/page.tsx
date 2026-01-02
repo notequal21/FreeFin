@@ -28,6 +28,7 @@ export default async function CounterpartyPage({
 
   // Получаем транзакции для этого контрагента
   // Включаем amount, exchange_rate и converted_amount для расчета статистики
+  // Включаем is_scheduled и scheduled_date для отображения запланированных транзакций
   const { data: transactions, error: transactionsError } = await supabase
     .from('transactions')
     .select(
@@ -38,6 +39,8 @@ export default async function CounterpartyPage({
       converted_amount,
       type,
       description,
+      is_scheduled,
+      scheduled_date,
       created_at,
       accounts:account_id (
         id,

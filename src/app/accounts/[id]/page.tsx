@@ -1,7 +1,7 @@
 import { requireAuth } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { AccountDetails } from '@/components/account-details';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 
 /**
  * Страница детального просмотра счета
@@ -28,10 +28,31 @@ export default async function AccountPage({
     notFound();
   }
 
-  // Получаем транзакции для этого счета
+  // Получаем транзакции для этого счета с связанными данными
   const { data: transactions, error: transactionsError } = await supabase
     .from('transactions')
-    .select('*')
+    .select(
+      `
+      *,
+      accounts:account_id (
+        id,
+        name,
+        currency
+      ),
+      categories:category_id (
+        id,
+        name
+      ),
+      projects:project_id (
+        id,
+        title
+      ),
+      counterparties:counterparty_id (
+        id,
+        name
+      )
+    `
+    )
     .eq('account_id', id)
     .order('created_at', { ascending: false });
 

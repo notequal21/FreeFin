@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -20,11 +20,23 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { CounterpartyFormDialog } from '@/components/counterparty-form-dialog';
+import { TransactionFormDialog } from '@/components/transaction-form-dialog';
 import { deleteCounterparty } from '@/app/counterparties/actions';
+import {
+  getTransactionFormData,
+  confirmScheduledTransaction,
+} from '@/app/transactions/actions';
 import { toast } from 'sonner';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { Edit01Icon, ArrowLeftIcon, Delete01Icon } from '@hugeicons/core-free-icons';
+import {
+  Edit01Icon,
+  ArrowLeftIcon,
+  Delete01Icon,
+  Calendar01Icon,
+  CheckmarkCircle01Icon,
+} from '@hugeicons/core-free-icons';
 import { Users, Briefcase } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface Counterparty {
   id: string;
@@ -35,11 +47,17 @@ interface Counterparty {
 
 interface Transaction {
   id: string;
+  account_id: string;
+  category_id: string | null;
+  project_id: string | null;
+  counterparty_id: string | null;
   amount: number;
   exchange_rate: number;
   converted_amount: number;
   type: 'income' | 'expense' | 'withdrawal';
   description: string | null;
+  is_scheduled: boolean;
+  scheduled_date: string | null;
   created_at: string;
   accounts: {
     id: string;
@@ -86,6 +104,17 @@ export function CounterpartyDetails({
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [editingTransaction, setEditingTransaction] =
+    useState<Transaction | null>(null);
+  const [transactionFormData, setTransactionFormData] = useState<{
+    accounts: Array<{ id: string; name: string; currency: string }>;
+    categories: Array<{ id: string; name: string; type: string }>;
+    projects: Array<{ id: string; title: string }>;
+    counterparties: Array<{ id: string; name: string }>;
+    defaultExchangeRate?: number;
+    primaryCurrency?: string;
+  } | null>(null);
+  const [isPending, startTransition] = useTransition();
 
   const TypeIcon = counterparty.type === 'client' ? Users : Briefcase;
   const typeLabel = counterparty.type === 'client' ? 'Клиент' : 'Подрядчик';
@@ -98,6 +127,11 @@ export function CounterpartyDetails({
   // - default_exchange_rate - курс по умолчанию RUB/USD (сколько рублей за доллар)
   const stats = transactions.reduce(
     (acc, transaction) => {
+      // Исключаем запланированные транзакции из статистики
+      if (transaction.is_scheduled) {
+        return acc;
+      }
+
       // Получаем валюту счета транзакции
       const accountCurrency = transaction.accounts?.currency || 'RUB';
       
@@ -151,6 +185,17 @@ export function CounterpartyDetails({
 
   const profit = stats.income - stats.expense;
 
+  // Загружаем данные для формы транзакции
+  useEffect(() => {
+    const loadFormData = async () => {
+      const result = await getTransactionFormData();
+      if (result.data) {
+        setTransactionFormData(result.data);
+      }
+    };
+    loadFormData();
+  }, []);
+
   // Обработчик удаления контрагента
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -165,6 +210,26 @@ export function CounterpartyDetails({
       toast.success('Контрагент удален');
       router.push('/counterparties');
     }
+  };
+
+  // Обработчик редактирования транзакции
+  const handleEditTransaction = (transaction: Transaction) => {
+    setEditingTransaction(transaction);
+  };
+
+  // Обработчик подтверждения запланированной транзакции
+  const handleConfirmScheduled = (transactionId: string) => {
+    startTransition(async () => {
+      const result = await confirmScheduledTransaction(transactionId);
+      if (result.error) {
+        toast.error('Ошибка', {
+          description: result.error,
+        });
+      } else {
+        toast.success('Транзакция подтверждена');
+        router.refresh();
+      }
+    });
   };
 
   // Функция для форматирования суммы транзакции
@@ -420,60 +485,132 @@ export function CounterpartyDetails({
                       <th className="px-4 py-3 text-left text-sm font-medium text-zinc-900 dark:text-zinc-50">
                         Описание
                       </th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-zinc-900 dark:text-zinc-50">
+                        Действия
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {transactions.map((transaction) => (
-                      <tr
-                        key={transaction.id}
-                        className="border-b border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors"
-                      >
-                        <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400">
-                          {new Date(transaction.created_at).toLocaleDateString('ru-RU', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                          })}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`text-sm font-medium ${getTransactionTypeColor(transaction.type)}`}
-                          >
-                            {getTransactionTypeLabel(transaction.type)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`text-sm font-medium ${getTransactionTypeColor(transaction.type)}`}
-                          >
-                            {transaction.accounts
-                              ? formatAmount(transaction.amount, transaction.accounts.currency)
-                              : transaction.amount}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400">
-                          {transaction.accounts?.name || '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400">
-                          {transaction.categories?.name || '-'}
-                        </td>
-                        <td className="px-4 py-3">
-                          {transaction.projects ? (
-                            <Link
-                              href={`/projects/${transaction.projects.id}`}
-                              className="text-sm text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
-                            >
-                              {transaction.projects.title}
-                            </Link>
-                          ) : (
-                            <span className="text-sm text-zinc-600 dark:text-zinc-400">-</span>
+                    {transactions.map((transaction) => {
+                      const isScheduled = transaction.is_scheduled;
+                      return (
+                        <tr
+                          key={transaction.id}
+                          className={cn(
+                            'border-b border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors',
+                            isScheduled &&
+                              'bg-amber-50/50 dark:bg-amber-950/10 border-amber-200 dark:border-amber-900'
                           )}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400">
-                          {transaction.description || '-'}
-                        </td>
-                      </tr>
-                    ))}
+                        >
+                          <td className="px-4 py-3">
+                            <div className="flex flex-col gap-1">
+                              <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                                {new Date(transaction.created_at).toLocaleDateString('ru-RU', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                })}
+                              </span>
+                              {/* Дата запланированной транзакции */}
+                              {transaction.scheduled_date && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-600 dark:bg-amber-950 dark:text-amber-400 w-fit">
+                                  <HugeiconsIcon icon={Calendar01Icon} size={10} />
+                                  {new Date(transaction.scheduled_date).toLocaleDateString(
+                                    'ru-RU',
+                                    {
+                                      day: 'numeric',
+                                      month: 'short',
+                                    }
+                                  )}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`text-sm font-medium ${getTransactionTypeColor(
+                                  transaction.type
+                                )}`}
+                              >
+                                {getTransactionTypeLabel(transaction.type)}
+                              </span>
+                              {/* Лейбл запланированной транзакции */}
+                              {isScheduled && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                                  <HugeiconsIcon icon={Calendar01Icon} size={12} />
+                                  Запланировано
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`text-sm font-medium ${getTransactionTypeColor(
+                                transaction.type
+                              )}`}
+                            >
+                              {transaction.accounts
+                                ? formatAmount(transaction.amount, transaction.accounts.currency)
+                                : transaction.amount}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400">
+                            {transaction.accounts?.name || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400">
+                            {transaction.categories?.name || '-'}
+                          </td>
+                          <td className="px-4 py-3">
+                            {transaction.projects ? (
+                              <Link
+                                href={`/projects/${transaction.projects.id}`}
+                                className="text-sm text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+                              >
+                                {transaction.projects.title}
+                              </Link>
+                            ) : (
+                              <span className="text-sm text-zinc-600 dark:text-zinc-400">-</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400">
+                            {transaction.description || '-'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1">
+                              {/* Кнопка подтверждения для запланированных транзакций */}
+                              {isScheduled && (
+                                <Button
+                                  variant="default"
+                                  size="icon"
+                                  onClick={() =>
+                                    handleConfirmScheduled(transaction.id)
+                                  }
+                                  disabled={isPending}
+                                  className="h-8 w-8 bg-emerald-600 hover:bg-emerald-700 text-white"
+                                  title="Подтвердить транзакцию"
+                                >
+                                  <HugeiconsIcon
+                                    icon={CheckmarkCircle01Icon}
+                                    size={16}
+                                  />
+                                </Button>
+                              )}
+                              {/* Кнопка редактирования */}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEditTransaction(transaction)}
+                                className="h-8 w-8"
+                                title="Редактировать транзакцию"
+                              >
+                                <HugeiconsIcon icon={Edit01Icon} size={16} />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -518,6 +655,22 @@ export function CounterpartyDetails({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Модалка редактирования транзакции */}
+      {transactionFormData && editingTransaction && (
+        <TransactionFormDialog
+          open={!!editingTransaction}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditingTransaction(null);
+              // Обновляем страницу после редактирования транзакции
+              router.refresh();
+            }
+          }}
+          transaction={editingTransaction}
+          formData={transactionFormData}
+        />
+      )}
     </>
   );
 }

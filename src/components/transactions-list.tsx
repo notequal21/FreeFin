@@ -1,13 +1,19 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { TransactionFormDialog } from '@/components/transaction-form-dialog';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { Edit01Icon } from '@hugeicons/core-free-icons';
+import {
+  Edit01Icon,
+  Calendar01Icon,
+  CheckmarkCircle01Icon,
+} from '@hugeicons/core-free-icons';
 import { cn } from '@/lib/utils';
 import { TrendingUp, TrendingDown, ArrowLeftRight } from 'lucide-react';
+import { confirmScheduledTransaction } from '@/app/transactions/actions';
+import { toast } from 'sonner';
 
 // Типы для транзакций
 export interface Transaction {
@@ -66,6 +72,7 @@ export function TransactionsList({
   const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(
     new Set()
   );
+  const [isPending, startTransition] = useTransition();
 
   // Группировка транзакций по датам
   const groupedTransactions = useMemo(() => {
@@ -115,6 +122,18 @@ export function TransactionsList({
       newSelected.delete(transactionId);
     }
     setSelectedTransactions(newSelected);
+  };
+
+  // Обработчик подтверждения запланированной транзакции
+  const handleConfirmScheduled = (transactionId: string) => {
+    startTransition(async () => {
+      const result = await confirmScheduledTransaction(transactionId);
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success('Транзакция подтверждена');
+      }
+    });
   };
 
   // Форматирование суммы
@@ -265,13 +284,16 @@ export function TransactionsList({
                   const isNegative =
                     transaction.type === 'expense' ||
                     transaction.type === 'withdrawal';
+                  const isScheduled = transaction.is_scheduled;
 
                   return (
                     <tr
                       key={transaction.id}
                       className={cn(
                         'border-b border-zinc-100 transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-950',
-                        isSelected && 'bg-emerald-50 dark:bg-emerald-950/20'
+                        isSelected && 'bg-emerald-50 dark:bg-emerald-950/20',
+                        isScheduled &&
+                          'bg-amber-50/50 dark:bg-amber-950/10 border-amber-200 dark:border-amber-900'
                       )}
                     >
                       <td className='px-4 py-3'>
@@ -297,15 +319,28 @@ export function TransactionsList({
                       </td>
                       <td className='px-4 py-3'>
                         <div className='flex flex-col'>
-                          <span className='font-medium text-zinc-900 dark:text-zinc-50'>
-                            {transaction.description ||
-                              transaction.categories?.name ||
-                              'Без описания'}
-                          </span>
+                          <div className='flex items-center gap-2'>
+                            <span className='font-medium text-zinc-900 dark:text-zinc-50'>
+                              {transaction.description ||
+                                transaction.categories?.name ||
+                                'Без описания'}
+                            </span>
+                            {/* Лейбл запланированной транзакции */}
+                            {isScheduled && (
+                              <span className='inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900 dark:text-amber-300'>
+                                <HugeiconsIcon
+                                  icon={Calendar01Icon}
+                                  size={12}
+                                />
+                                Запланировано
+                              </span>
+                            )}
+                          </div>
                           {/* Отображение счета, проектов и тегов */}
                           {(transaction.accounts?.name ||
                             transaction.projects?.title ||
-                            transaction.tags?.length) && (
+                            transaction.tags?.length ||
+                            transaction.scheduled_date) && (
                             <div className='mt-1 flex items-center gap-2 flex-wrap'>
                               {/* Счет транзакции */}
                               {transaction.accounts?.name && (
@@ -317,6 +352,21 @@ export function TransactionsList({
                               {transaction.projects?.title && (
                                 <span className='inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700 dark:bg-blue-900 dark:text-blue-300'>
                                   {transaction.projects.title}
+                                </span>
+                              )}
+                              {/* Дата запланированной транзакции */}
+                              {transaction.scheduled_date && (
+                                <span className='inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-600 dark:bg-amber-950 dark:text-amber-400'>
+                                  <HugeiconsIcon
+                                    icon={Calendar01Icon}
+                                    size={10}
+                                  />
+                                  {new Date(
+                                    transaction.scheduled_date
+                                  ).toLocaleDateString('ru-RU', {
+                                    day: 'numeric',
+                                    month: 'short',
+                                  })}
                                 </span>
                               )}
                               {/* Теги */}
@@ -389,14 +439,36 @@ export function TransactionsList({
                         </div>
                       </td>
                       <td className='px-4 py-3'>
-                        <Button
-                          variant='ghost'
-                          size='icon'
-                          onClick={() => handleEdit(transaction)}
-                          className='h-8 w-8'
-                        >
-                          <HugeiconsIcon icon={Edit01Icon} size={16} />
-                        </Button>
+                        <div className='flex items-center gap-1'>
+                          {/* Кнопка подтверждения для запланированных транзакций */}
+                          {isScheduled && (
+                            <Button
+                              variant='default'
+                              size='icon'
+                              onClick={() =>
+                                handleConfirmScheduled(transaction.id)
+                              }
+                              disabled={isPending}
+                              className='h-8 w-8 bg-emerald-600 hover:bg-emerald-700 text-white'
+                              title='Подтвердить транзакцию'
+                            >
+                              <HugeiconsIcon
+                                icon={CheckmarkCircle01Icon}
+                                size={16}
+                              />
+                            </Button>
+                          )}
+                          {/* Кнопка редактирования */}
+                          <Button
+                            variant='ghost'
+                            size='icon'
+                            onClick={() => handleEdit(transaction)}
+                            className='h-8 w-8'
+                            title='Редактировать транзакцию'
+                          >
+                            <HugeiconsIcon icon={Edit01Icon} size={16} />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );

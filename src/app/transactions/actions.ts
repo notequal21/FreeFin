@@ -466,6 +466,72 @@ export async function getTransactions(
 }
 
 /**
+ * Подтверждает запланированную транзакцию (меняет is_scheduled на false)
+ */
+export async function confirmScheduledTransaction(transactionId: string) {
+  try {
+    const supabase = await createClient();
+
+    // Проверяем аутентификацию
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return { error: 'Необходима аутентификация' };
+    }
+
+    // Валидируем ID
+    const validatedId = z.string().uuid().parse(transactionId);
+
+    // Проверяем, что транзакция существует и является запланированной
+    const { data: transaction, error: fetchError } = await supabase
+      .from('transactions')
+      .select('id, is_scheduled, account_id')
+      .eq('id', validatedId)
+      .eq('user_id', user.id)
+      .single();
+
+    if (fetchError || !transaction) {
+      return { error: 'Транзакция не найдена' };
+    }
+
+    if (!transaction.is_scheduled) {
+      return { error: 'Транзакция не является запланированной' };
+    }
+
+    // Обновляем транзакцию: убираем флаг is_scheduled
+    const { data, error } = await supabase
+      .from('transactions')
+      .update({ is_scheduled: false })
+      .eq('id', validatedId)
+      .eq('user_id', user.id)
+      .select()
+      .single();
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    // Инвалидируем кэш страниц транзакций и счетов
+    // Баланс счета обновляется триггером, поэтому нужно обновить страницы счетов
+    revalidatePath('/transactions');
+    revalidatePath('/accounts');
+    if (transaction.account_id) {
+      revalidatePath(`/accounts/${transaction.account_id}`);
+    }
+
+    return { data, success: true };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { error: error.issues[0].message };
+    }
+    return { error: 'Ошибка при подтверждении транзакции' };
+  }
+}
+
+/**
  * Получает данные для выпадающих списков формы транзакции
  */
 export async function getTransactionFormData() {

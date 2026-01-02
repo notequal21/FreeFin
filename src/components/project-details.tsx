@@ -13,7 +13,10 @@ import {
 import { ProjectFormDialog } from '@/components/project-form-dialog';
 import { TransactionFormDialog } from '@/components/transaction-form-dialog';
 import { deleteProject } from '@/app/projects/actions';
-import { getTransactionFormData } from '@/app/transactions/actions';
+import {
+  getTransactionFormData,
+  confirmScheduledTransaction,
+} from '@/app/transactions/actions';
 import {
   Dialog,
   DialogContent,
@@ -28,7 +31,11 @@ import {
   Edit01Icon,
   Delete01Icon,
   ArrowLeft01Icon,
+  Calendar01Icon,
+  CheckmarkCircle01Icon,
 } from '@hugeicons/core-free-icons';
+import { cn } from '@/lib/utils';
+import { useTransition } from 'react';
 
 interface Counterparty {
   id: string;
@@ -50,12 +57,18 @@ interface Project {
 interface Transaction {
   id: string;
   account_id: string;
+  category_id: string | null;
+  project_id: string | null;
+  counterparty_id: string | null;
   amount: number;
   exchange_rate: number;
   converted_amount: number;
   project_exchange_rate: number | null;
   type: 'income' | 'expense' | 'withdrawal';
+  tags: string[] | null;
   description: string | null;
+  is_scheduled: boolean;
+  scheduled_date: string | null;
   created_at: string;
   accounts?: {
     id: string;
@@ -93,6 +106,8 @@ export function ProjectDetails({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] =
+    useState<Transaction | null>(null);
   const [transactionType, setTransactionType] = useState<
     'income' | 'expense' | 'withdrawal'
   >('income');
@@ -101,7 +116,10 @@ export function ProjectDetails({
     categories: Array<{ id: string; name: string; type: string }>;
     projects: Array<{ id: string; title: string }>;
     counterparties: Array<{ id: string; name: string }>;
+    defaultExchangeRate?: number;
+    primaryCurrency?: string;
   } | null>(null);
+  const [isPending, startTransition] = useTransition();
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -165,6 +183,11 @@ export function ProjectDetails({
   // - default_exchange_rate - курс по умолчанию RUB/USD (сколько рублей за доллар)
   const stats = transactions.reduce(
     (acc, transaction) => {
+      // Исключаем запланированные транзакции из статистики
+      if (transaction.is_scheduled) {
+        return acc;
+      }
+
       // Получаем валюту счета транзакции
       const accountCurrency = transaction.accounts?.currency || 'RUB';
 
@@ -268,6 +291,26 @@ export function ProjectDetails({
   ) => {
     setTransactionType(type);
     setIsTransactionDialogOpen(true);
+  };
+
+  // Обработчик редактирования транзакции
+  const handleEditTransaction = (transaction: Transaction) => {
+    setEditingTransaction(transaction);
+  };
+
+  // Обработчик подтверждения запланированной транзакции
+  const handleConfirmScheduled = (transactionId: string) => {
+    startTransition(async () => {
+      const result = await confirmScheduledTransaction(transactionId);
+      if (result.error) {
+        toast.error('Ошибка', {
+          description: result.error,
+        });
+      } else {
+        toast.success('Транзакция подтверждена');
+        router.refresh();
+      }
+    });
   };
 
   return (
@@ -439,65 +482,126 @@ export function ProjectDetails({
               </p>
             ) : (
               <div className='space-y-4'>
-                {transactions.map((transaction) => (
-                  <div
-                    key={transaction.id}
-                    className='flex items-center justify-between border-b pb-4 last:border-0 last:pb-0'
-                  >
-                    <div className='flex-1'>
-                      <div className='flex items-center gap-2'>
-                        <span
-                          className={`font-medium ${getTransactionTypeColor(
-                            transaction.type
-                          )}`}
-                        >
-                          {getTransactionTypeLabel(transaction.type)}
-                        </span>
-                        <span className='text-sm text-muted-foreground'>
-                          {new Date(transaction.created_at).toLocaleDateString(
-                            'ru-RU',
-                            {
+                {transactions.map((transaction) => {
+                  const isScheduled = transaction.is_scheduled;
+                  return (
+                    <div
+                      key={transaction.id}
+                      className={cn(
+                        'flex items-center justify-between border-b pb-4 last:border-0 last:pb-0 rounded-lg p-3 transition-colors',
+                        isScheduled &&
+                          'bg-amber-50/50 dark:bg-amber-950/10 border-amber-200 dark:border-amber-900'
+                      )}
+                    >
+                      <div className='flex-1'>
+                        <div className='flex items-center gap-2 flex-wrap'>
+                          <span
+                            className={`font-medium ${getTransactionTypeColor(
+                              transaction.type
+                            )}`}
+                          >
+                            {getTransactionTypeLabel(transaction.type)}
+                          </span>
+                          {/* Лейбл запланированной транзакции */}
+                          {isScheduled && (
+                            <span className='inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900 dark:text-amber-300'>
+                              <HugeiconsIcon icon={Calendar01Icon} size={12} />
+                              Запланировано
+                            </span>
+                          )}
+                          <span className='text-sm text-muted-foreground'>
+                            {new Date(
+                              transaction.created_at
+                            ).toLocaleDateString('ru-RU', {
                               year: 'numeric',
                               month: 'long',
                               day: 'numeric',
-                            }
-                          )}
-                        </span>
-                      </div>
-                      {transaction.description && (
-                        <p className='mt-1 text-sm text-muted-foreground'>
-                          {transaction.description}
-                        </p>
-                      )}
-                      <div className='mt-1 flex gap-4 text-xs text-muted-foreground'>
-                        {transaction.accounts && (
-                          <span>Счет: {transaction.accounts.name}</span>
-                        )}
-                        {transaction.categories && (
-                          <span>Категория: {transaction.categories.name}</span>
-                        )}
-                        {transaction.counterparties && (
-                          <span>
-                            Контрагент: {transaction.counterparties.name}
+                            })}
                           </span>
+                          {/* Дата запланированной транзакции */}
+                          {transaction.scheduled_date && (
+                            <span className='inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-600 dark:bg-amber-950 dark:text-amber-400'>
+                              <HugeiconsIcon icon={Calendar01Icon} size={10} />
+                              {new Date(
+                                transaction.scheduled_date
+                              ).toLocaleDateString('ru-RU', {
+                                day: 'numeric',
+                                month: 'short',
+                              })}
+                            </span>
+                          )}
+                        </div>
+                        {transaction.description && (
+                          <p className='mt-1 text-sm text-muted-foreground'>
+                            {transaction.description}
+                          </p>
                         )}
+                        <div className='mt-1 flex gap-4 text-xs text-muted-foreground'>
+                          {transaction.accounts && (
+                            <span>Счет: {transaction.accounts.name}</span>
+                          )}
+                          {transaction.categories && (
+                            <span>
+                              Категория: {transaction.categories.name}
+                            </span>
+                          )}
+                          {transaction.counterparties && (
+                            <span>
+                              Контрагент: {transaction.counterparties.name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className='flex items-center gap-2'>
+                        <div className='text-right'>
+                          <p
+                            className={`font-semibold ${getTransactionTypeColor(
+                              transaction.type
+                            )}`}
+                          >
+                            {transaction.type === 'expense' ? '-' : '+'}
+                            {formatAmount(
+                              transaction.converted_amount ||
+                                transaction.amount,
+                              transaction.accounts?.currency || 'RUB'
+                            )}
+                          </p>
+                        </div>
+                        {/* Кнопки действий */}
+                        <div className='flex items-center gap-1'>
+                          {/* Кнопка подтверждения для запланированных транзакций */}
+                          {isScheduled && (
+                            <Button
+                              variant='default'
+                              size='icon'
+                              onClick={() =>
+                                handleConfirmScheduled(transaction.id)
+                              }
+                              disabled={isPending}
+                              className='h-8 w-8 bg-emerald-600 hover:bg-emerald-700 text-white'
+                              title='Подтвердить транзакцию'
+                            >
+                              <HugeiconsIcon
+                                icon={CheckmarkCircle01Icon}
+                                size={16}
+                              />
+                            </Button>
+                          )}
+                          {/* Кнопка редактирования */}
+                          <Button
+                            variant='ghost'
+                            size='icon'
+                            onClick={() => handleEditTransaction(transaction)}
+                            className='h-8 w-8'
+                            title='Редактировать транзакцию'
+                          >
+                            <HugeiconsIcon icon={Edit01Icon} size={16} />
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                    <div className='text-right'>
-                      <p
-                        className={`font-semibold ${getTransactionTypeColor(
-                          transaction.type
-                        )}`}
-                      >
-                        {transaction.type === 'expense' ? '-' : '+'}
-                        {formatAmount(
-                          transaction.converted_amount || transaction.amount,
-                          transaction.accounts?.currency || 'RUB'
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
@@ -562,6 +666,22 @@ export function ProjectDetails({
           defaultType={transactionType}
           defaultProjectId={project.id}
           defaultCounterpartyId={project.counterparty_id}
+          formData={transactionFormData}
+        />
+      )}
+
+      {/* Модалка редактирования транзакции */}
+      {transactionFormData && editingTransaction && (
+        <TransactionFormDialog
+          open={!!editingTransaction}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditingTransaction(null);
+              // Обновляем страницу после редактирования транзакции
+              router.refresh();
+            }
+          }}
+          transaction={editingTransaction}
           formData={transactionFormData}
         />
       )}
