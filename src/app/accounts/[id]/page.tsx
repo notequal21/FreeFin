@@ -39,11 +39,5 @@ export default async function AccountPage({
     console.error('Ошибка загрузки транзакций:', transactionsError);
   }
 
-  return (
-    <AccountDetails
-      account={account}
-      transactions={transactions || []}
-    />
-  );
+  return <AccountDetails account={account} transactions={transactions || []} />;
 }
-

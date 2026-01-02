@@ -14,10 +14,10 @@ const createAccountSchema = z.object({
 });
 
 // Схема валидации для обновления счета
+// ВАЖНО: balance не включается в схему обновления, так как он вычисляется автоматически триггером
 const updateAccountSchema = z.object({
   id: z.string().uuid('Некорректный ID счета'),
   name: z.string().min(1, 'Название счета обязательно'),
-  balance: z.coerce.number().default(0),
   currency: z.enum(['USD', 'RUB'], {
     errorMap: () => ({ message: 'Валюта должна быть USD или RUB' }),
   }),
@@ -49,13 +49,14 @@ export async function createAccount(formData: FormData) {
 
     const validatedData = createAccountSchema.parse(rawData);
 
-    // Создаем счет
+    // Создаем счет с балансом 0
+    // Начальный баланс будет установлен через системную транзакцию, если он указан
     const { data, error } = await supabase
       .from('accounts')
       .insert({
         user_id: user.id,
         name: validatedData.name,
-        balance: validatedData.balance,
+        balance: 0, // Всегда создаем счет с балансом 0
         currency: validatedData.currency,
       })
       .select()
@@ -65,11 +66,33 @@ export async function createAccount(formData: FormData) {
       return { error: error.message };
     }
 
+    // Если указан начальный баланс > 0, создаем системную транзакцию типа "income"
+    // Триггер update_account_balance автоматически пересчитает баланс счета
+    if (validatedData.balance > 0) {
+      const { error: transactionError } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: user.id,
+          account_id: data.id,
+          amount: validatedData.balance,
+          exchange_rate: 1,
+          type: 'income',
+          description: 'Начальный баланс счета',
+          tags: [],
+        });
+
+      if (transactionError) {
+        // Если не удалось создать транзакцию, удаляем счет
+        await supabase.from('accounts').delete().eq('id', data.id);
+        return { error: 'Ошибка при создании начального баланса: ' + transactionError.message };
+      }
+    }
+
     revalidatePath('/accounts');
     return { data, success: true };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return { error: error.errors[0].message };
+      return { error: error.issues[0].message };
     }
     return { error: 'Ошибка при создании счета' };
   }
@@ -96,18 +119,17 @@ export async function updateAccount(formData: FormData) {
     const rawData = {
       id: formData.get('id') as string,
       name: formData.get('name') as string,
-      balance: formData.get('balance') as string,
       currency: formData.get('currency') as 'USD' | 'RUB',
     };
 
     const validatedData = updateAccountSchema.parse(rawData);
 
     // Обновляем счет
+    // ВАЖНО: balance не обновляется вручную - он вычисляется автоматически триггером update_account_balance
     const { data, error } = await supabase
       .from('accounts')
       .update({
         name: validatedData.name,
-        balance: validatedData.balance,
         currency: validatedData.currency,
       })
       .eq('id', validatedData.id)
@@ -124,7 +146,7 @@ export async function updateAccount(formData: FormData) {
     return { data, success: true };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return { error: error.errors[0].message };
+      return { error: error.issues[0].message };
     }
     return { error: 'Ошибка при обновлении счета' };
   }
@@ -165,7 +187,7 @@ export async function deleteAccount(accountId: string) {
     return { success: true };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return { error: error.errors[0].message };
+      return { error: error.issues[0].message };
     }
     return { error: 'Ошибка при удалении счета' };
   }

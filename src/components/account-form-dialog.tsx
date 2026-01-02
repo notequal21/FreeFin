@@ -33,9 +33,11 @@ import { toast } from 'sonner';
 import { useEffect } from 'react';
 
 // Схема валидации для формы счета
+// ВАЖНО: balance используется только при создании счета (начальный баланс)
+// При редактировании баланс вычисляется автоматически триггером и не должен изменяться вручную
 const accountSchema = z.object({
   name: z.string().min(1, 'Название счета обязательно'),
-  balance: z.coerce.number().default(0),
+  balance: z.coerce.number().default(0).optional(),
   currency: z.enum(['USD', 'RUB'], {
     errorMap: () => ({ message: 'Валюта должна быть USD или RUB' }),
   }),
@@ -74,12 +76,13 @@ export function AccountFormDialog({
   // Обновляем форму при изменении account
   useEffect(() => {
     if (account) {
+      // При редактировании не показываем баланс - он вычисляется автоматически триггером
       form.reset({
         name: account.name,
-        balance: account.balance,
         currency: account.currency,
       });
     } else {
+      // При создании показываем поле для начального баланса
       form.reset({
         name: '',
         balance: 0,
@@ -91,11 +94,11 @@ export function AccountFormDialog({
   const onSubmit = async (data: AccountFormData) => {
     const formData = new FormData();
     formData.append('name', data.name);
-    formData.append('balance', data.balance.toString());
     formData.append('currency', data.currency);
 
     if (account) {
       // Редактирование существующего счета
+      // ВАЖНО: balance не передается - он вычисляется автоматически триггером
       formData.append('id', account.id);
       const result = await updateAccount(formData);
 
@@ -110,6 +113,8 @@ export function AccountFormDialog({
       }
     } else {
       // Создание нового счета
+      // При создании передаем начальный баланс
+      formData.append('balance', (data.balance || 0).toString());
       const result = await createAccount(formData);
 
       if (result.error) {
@@ -154,25 +159,29 @@ export function AccountFormDialog({
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="balance"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Начальный баланс</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="0"
-                      {...field}
-                      onChange={(e) => field.onChange(e.target.value)}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Поле баланса показывается только при создании счета */}
+            {/* При редактировании баланс вычисляется автоматически триггером */}
+            {!account && (
+              <FormField
+                control={form.control}
+                name="balance"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Начальный баланс</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="0"
+                        {...field}
+                        onChange={(e) => field.onChange(e.target.value)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <FormField
               control={form.control}

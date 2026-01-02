@@ -31,9 +31,19 @@ export async function Header() {
             size='sm'
             className='bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600'
           >
-            <Link href='/transactions/income'>Доход</Link>
+            <Link href='/transactions?openDialog=true'>
+              Добавить транзакцию
+            </Link>
           </Button>
-          <Button
+          {/* <Button
+            asChild
+            variant='default'
+            size='sm'
+            className='bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600'
+          >
+            <Link href='/transactions/income'>Доход</Link>
+          </Button> */}
+          {/* <Button
             asChild
             variant='default'
             size='sm'
@@ -48,7 +58,7 @@ export async function Header() {
             className='bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600'
           >
             <Link href='/transactions/transfer'>Перевод</Link>
-          </Button>
+          </Button> */}
         </div>
 
         {/* Профиль пользователя с дропдауном */}

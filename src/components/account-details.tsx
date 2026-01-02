@@ -41,6 +41,8 @@ interface Transaction {
   id: string;
   account_id: string;
   amount: number;
+  exchange_rate: number | null;
+  converted_amount: number | null;
   currency?: string;
   type: 'income' | 'expense' | 'withdrawal';
   description: string | null;
@@ -211,17 +213,45 @@ export function AccountDetails({ account, transactions }: AccountDetailsProps) {
                       )}
                     </div>
                     <div className='text-right'>
-                      <p
-                        className={`font-semibold ${getTransactionTypeColor(
-                          transaction.type
-                        )}`}
-                      >
-                        {transaction.type === 'expense' ? '-' : '+'}
-                        {formatAmount(
-                          Math.abs(transaction.amount),
-                          account.currency
-                        )}
-                      </p>
+                      {/* Определяем, была ли транзакция в валюте, отличной от валюты счета */}
+                      {transaction.exchange_rate !== 1 &&
+                      transaction.exchange_rate !== null ? (
+                        // Транзакция в другой валюте: показываем converted_amount как основную сумму
+                        <div className='flex flex-col items-end'>
+                          <p
+                            className={`font-semibold ${getTransactionTypeColor(
+                              transaction.type
+                            )}`}
+                          >
+                            {transaction.type === 'expense' ? '-' : '+'}
+                            {formatAmount(
+                              Math.abs(transaction.converted_amount || 0),
+                              account.currency
+                            )}
+                          </p>
+                          <p className='mt-1 text-xs text-zinc-500 dark:text-zinc-400'>
+                            {/* Определяем исходную валюту транзакции */}(
+                            {formatAmount(
+                              Math.abs(transaction.amount),
+                              account.currency === 'RUB' ? 'USD' : 'RUB'
+                            )}
+                            )
+                          </p>
+                        </div>
+                      ) : (
+                        // Транзакция в валюте счета: показываем amount как обычно
+                        <p
+                          className={`font-semibold ${getTransactionTypeColor(
+                            transaction.type
+                          )}`}
+                        >
+                          {transaction.type === 'expense' ? '-' : '+'}
+                          {formatAmount(
+                            Math.abs(transaction.amount),
+                            account.currency
+                          )}
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))}
