@@ -13,7 +13,13 @@ export default async function CategoriesPage() {
   const auth = await getAuth();
 
   // Получаем все категории (общие и приватные)
-  let categories = [];
+  let categories: Array<{
+    id: string;
+    name: string;
+    type: 'income' | 'expense';
+    user_id: string | null;
+    created_at: string;
+  }> = [];
   if (auth?.user) {
     const { data, error } = await supabase
       .from('categories')

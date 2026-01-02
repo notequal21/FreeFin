@@ -37,9 +37,9 @@ import { useEffect } from 'react';
 // При редактировании баланс вычисляется автоматически триггером и не должен изменяться вручную
 const accountSchema = z.object({
   name: z.string().min(1, 'Название счета обязательно'),
-  balance: z.coerce.number().default(0).optional(),
+  balance: z.number().default(0).optional(),
   currency: z.enum(['USD', 'RUB'], {
-    errorMap: () => ({ message: 'Валюта должна быть USD или RUB' }),
+    message: 'Валюта должна быть USD или RUB',
   }),
 });
 
@@ -114,7 +114,8 @@ export function AccountFormDialog({
     } else {
       // Создание нового счета
       // При создании передаем начальный баланс
-      formData.append('balance', (data.balance || 0).toString());
+      const balance = data.balance ?? 0;
+      formData.append('balance', balance.toString());
       const result = await createAccount(formData);
 
       if (result.error) {
@@ -174,7 +175,11 @@ export function AccountFormDialog({
                         step="0.01"
                         placeholder="0"
                         {...field}
-                        onChange={(e) => field.onChange(e.target.value)}
+                        value={field.value ?? ''}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          field.onChange(value === '' ? undefined : parseFloat(value) || 0);
+                        }}
                       />
                     </FormControl>
                     <FormMessage />

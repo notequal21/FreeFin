@@ -29,19 +29,11 @@ export default async function CounterpartyPage({
   // Получаем транзакции для этого контрагента
   // Включаем amount, exchange_rate и converted_amount для расчета статистики
   // Включаем is_scheduled и scheduled_date для отображения запланированных транзакций
-  const { data: transactions, error: transactionsError } = await supabase
+  const { data: transactionsRaw, error: transactionsError } = await supabase
     .from('transactions')
     .select(
       `
-      id,
-      amount,
-      exchange_rate,
-      converted_amount,
-      type,
-      description,
-      is_scheduled,
-      scheduled_date,
-      created_at,
+      *,
       accounts:account_id (
         id,
         name,
@@ -64,6 +56,15 @@ export default async function CounterpartyPage({
     console.error('Ошибка загрузки транзакций:', transactionsError);
   }
 
+  // Преобразуем связанные данные из массивов в объекты или null
+  // Supabase возвращает связанные данные как массивы, даже для связей один-к-одному
+  const transactions = transactionsRaw?.map((t: any) => ({
+    ...t,
+    accounts: Array.isArray(t.accounts) ? (t.accounts[0] || null) : t.accounts,
+    categories: Array.isArray(t.categories) ? (t.categories[0] || null) : t.categories,
+    projects: Array.isArray(t.projects) ? (t.projects[0] || null) : t.projects,
+  })) || [];
+
   // Получаем проекты для этого контрагента
   const { data: projects, error: projectsError } = await supabase
     .from('projects')
@@ -80,7 +81,7 @@ export default async function CounterpartyPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  let primaryCurrency = 'RUB';
+  let primaryCurrency: 'USD' | 'RUB' = 'RUB';
   let defaultExchangeRate = 100; // Курс по умолчанию RUB/USD
   if (user) {
     const { data: profile } = await supabase
@@ -89,7 +90,7 @@ export default async function CounterpartyPage({
       .eq('id', user.id)
       .maybeSingle();
 
-    if (profile?.primary_currency) {
+    if (profile?.primary_currency && (profile.primary_currency === 'USD' || profile.primary_currency === 'RUB')) {
       primaryCurrency = profile.primary_currency;
     }
     if (profile?.default_exchange_rate) {

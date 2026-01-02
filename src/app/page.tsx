@@ -1,6 +1,6 @@
-import { requireAuth } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
-import { Dashboard } from "@/components/dashboard";
+import { requireAuth } from '@/lib/auth';
+import { createClient } from '@/lib/supabase/server';
+import { Dashboard } from '@/components/dashboard';
 
 /**
  * Главная страница (дашборд) с проверкой аутентификации
@@ -24,27 +24,27 @@ export default async function Home() {
 
   // Получаем профиль пользователя для primary_currency и default_exchange_rate
   const { data: profile } = await supabase
-    .from("profiles")
-    .select("primary_currency, default_exchange_rate")
-    .eq("id", user.id)
+    .from('profiles')
+    .select('primary_currency, default_exchange_rate')
+    .eq('id', user.id)
     .maybeSingle();
 
-  const primaryCurrency = profile?.primary_currency || "RUB";
+  const primaryCurrency = profile?.primary_currency || 'RUB';
   const defaultExchangeRate = profile?.default_exchange_rate || 100;
 
   // Получаем все счета пользователя
   const { data: accounts, error: accountsError } = await supabase
-    .from("accounts")
-    .select("*")
-    .order("created_at", { ascending: false });
+    .from('accounts')
+    .select('*')
+    .order('created_at', { ascending: false });
 
   if (accountsError) {
-    console.error("Ошибка загрузки счетов:", accountsError);
+    console.error('Ошибка загрузки счетов:', accountsError);
   }
 
   // Получаем последние 10 активных проектов (is_completed = false)
   const { data: projects, error: projectsError } = await supabase
-    .from("projects")
+    .from('projects')
     .select(
       `
       *,
@@ -55,39 +55,39 @@ export default async function Home() {
       )
     `
     )
-    .eq("is_completed", false)
-    .order("created_at", { ascending: false })
+    .eq('is_completed', false)
+    .order('created_at', { ascending: false })
     .limit(10);
 
   if (projectsError) {
-    console.error("Ошибка загрузки проектов:", projectsError);
+    console.error('Ошибка загрузки проектов:', projectsError);
   }
 
   // Получаем количество активных проектов (is_completed = false)
   const { count: projectsCount } = await supabase
-    .from("projects")
-    .select("*", { count: "exact", head: true })
-    .eq("is_completed", false);
+    .from('projects')
+    .select('*', { count: 'exact', head: true })
+    .eq('is_completed', false);
 
   // Получаем последние 10 контрагентов
   const { data: counterparties, error: counterpartiesError } = await supabase
-    .from("counterparties")
-    .select("*")
-    .order("created_at", { ascending: false })
+    .from('counterparties')
+    .select('*')
+    .order('created_at', { ascending: false })
     .limit(10);
 
   if (counterpartiesError) {
-    console.error("Ошибка загрузки контрагентов:", counterpartiesError);
+    console.error('Ошибка загрузки контрагентов:', counterpartiesError);
   }
 
   // Получаем общее количество контрагентов
   const { count: counterpartiesCount } = await supabase
-    .from("counterparties")
-    .select("*", { count: "exact", head: true });
+    .from('counterparties')
+    .select('*', { count: 'exact', head: true });
 
   // Получаем последние 10 транзакций для отображения
   const { data: transactions, error: transactionsError } = await supabase
-    .from("transactions")
+    .from('transactions')
     .select(
       `
       *,
@@ -110,18 +110,19 @@ export default async function Home() {
       )
     `
     )
-    .order("created_at", { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(10);
 
   if (transactionsError) {
-    console.error("Ошибка загрузки транзакций:", transactionsError);
+    console.error('Ошибка загрузки транзакций:', transactionsError);
   }
 
   // Получаем все запланированные транзакции для расчета дебиторки и кредиторки
-  const { data: scheduledTransactions, error: scheduledTransactionsError } = await supabase
-    .from("transactions")
-    .select(
-      `
+  const { data: scheduledTransactions, error: scheduledTransactionsError } =
+    await supabase
+      .from('transactions')
+      .select(
+        `
       *,
       accounts:account_id (
         id,
@@ -129,17 +130,20 @@ export default async function Home() {
         currency
       )
     `
-    )
-    .eq("is_scheduled", true)
-    .order("created_at", { ascending: false });
+      )
+      .eq('is_scheduled', true)
+      .order('created_at', { ascending: false });
 
   if (scheduledTransactionsError) {
-    console.error("Ошибка загрузки запланированных транзакций:", scheduledTransactionsError);
+    console.error(
+      'Ошибка загрузки запланированных транзакций:',
+      scheduledTransactionsError
+    );
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <h1 className="mb-6 text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
+    <div className='container mx-auto p-6'>
+      <h1 className='mb-6 text-2xl font-semibold text-zinc-900 dark:text-zinc-50'>
         Дашборд
       </h1>
       <Dashboard

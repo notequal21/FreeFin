@@ -43,7 +43,7 @@ const settingsSchema = z.object({
   primary_currency: z.enum(['USD', 'RUB'], {
     message: 'Выберите валюту: USD или RUB',
   }),
-  default_exchange_rate: z.coerce.number().positive('Курс должен быть положительным'),
+  default_exchange_rate: z.number().positive('Курс должен быть положительным'),
 });
 
 type SettingsFormData = z.infer<typeof settingsSchema>;
@@ -169,7 +169,7 @@ export function SettingsForm({ fullName, defaultExchangeRate, primaryCurrency }:
                         {...field}
                         onChange={(e) => {
                           const value = e.target.value;
-                          field.onChange(value === '' ? '' : parseFloat(value));
+                          field.onChange(value === '' ? 0 : parseFloat(value) || 0);
                         }}
                       />
                     </FormControl>

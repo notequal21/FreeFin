@@ -8,7 +8,7 @@ import { revalidatePath } from 'next/cache';
 const createCategorySchema = z.object({
   name: z.string().min(1, 'Название категории обязательно'),
   type: z.enum(['income', 'expense'], {
-    errorMap: () => ({ message: 'Тип должен быть income или expense' }),
+    message: 'Тип должен быть income или expense',
   }),
 });
 
@@ -17,7 +17,7 @@ const updateCategorySchema = z.object({
   id: z.string().uuid('Некорректный ID категории'),
   name: z.string().min(1, 'Название категории обязательно'),
   type: z.enum(['income', 'expense'], {
-    errorMap: () => ({ message: 'Тип должен быть income или expense' }),
+    message: 'Тип должен быть income или expense',
   }),
 });
 

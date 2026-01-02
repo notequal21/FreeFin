@@ -36,7 +36,7 @@ import { useEffect } from 'react';
 const counterpartySchema = z.object({
   name: z.string().min(1, 'Название контрагента обязательно'),
   type: z.enum(['client', 'contractor'], {
-    errorMap: () => ({ message: 'Тип должен быть client или contractor' }),
+    message: 'Тип должен быть client или contractor',
   }),
 });
 

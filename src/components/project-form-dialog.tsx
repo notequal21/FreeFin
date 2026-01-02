@@ -35,29 +35,13 @@ import { useEffect, useState } from 'react';
 // Схема валидации для формы проекта
 const projectSchema = z.object({
   title: z.string().min(1, 'Название проекта обязательно'),
-  budget: z.union([
-    z.coerce.number().positive(),
-    z.null(),
-    z.literal(''),
-  ]).transform((val) => {
-    if (val === '' || val === null) return null;
-    const num = Number(val);
-    return isNaN(num) ? null : num;
-  }).nullable(),
+  budget: z.number().positive().nullable(),
   currency: z.enum(['USD', 'RUB']).nullable(),
-  exchange_rate: z.union([
-    z.coerce.number().positive('Курс должен быть положительным'),
-    z.null(),
-    z.literal(''),
-  ]).transform((val) => {
-    if (val === '' || val === null) return null;
-    const num = Number(val);
-    return isNaN(num) ? null : num;
-  }).nullable().optional(),
+  exchange_rate: z.number().positive().nullable().optional(),
   counterparty_id: z.string().uuid().nullable().optional(),
   is_completed: z.boolean().optional(),
 }).refine((data) => {
-  const hasBudget = data.budget !== null && data.budget !== undefined && data.budget !== '';
+  const hasBudget = data.budget !== null && data.budget !== undefined;
   const hasCurrency = data.currency !== null && data.currency !== undefined;
   
   // Если бюджет указан, валюта должна быть указана
@@ -257,10 +241,10 @@ export function ProjectFormDialog({
                         {...field}
                         value={field.value || ''}
                         onChange={(e) => {
-                          const value = e.target.value === '' ? null : e.target.value;
+                          const value = e.target.value === '' ? null : parseFloat(e.target.value) || null;
                           field.onChange(value);
                           // Если бюджет очищен, очищаем и валюту
-                          if (value === null || value === '') {
+                          if (value === null) {
                             form.setValue('currency', null);
                           }
                         }}
@@ -280,7 +264,7 @@ export function ProjectFormDialog({
                     <Select
                       onValueChange={(value) => field.onChange(value === 'none' ? null : value)}
                       value={field.value || 'none'}
-                      disabled={!form.watch('budget') || form.watch('budget') === null || form.watch('budget') === ''}
+                      disabled={!form.watch('budget') || form.watch('budget') === null}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -300,7 +284,7 @@ export function ProjectFormDialog({
             </div>
 
             {/* Поле курса обмена - показываем только если валюта указана */}
-            {form.watch('currency') && form.watch('currency') !== 'none' && (
+            {form.watch('currency') && (
               <FormField
                 control={form.control}
                 name="exchange_rate"
@@ -315,7 +299,7 @@ export function ProjectFormDialog({
                         {...field}
                         value={field.value || ''}
                         onChange={(e) => {
-                          const value = e.target.value === '' ? null : e.target.value;
+                          const value = e.target.value === '' ? null : parseFloat(e.target.value) || null;
                           field.onChange(value);
                         }}
                       />

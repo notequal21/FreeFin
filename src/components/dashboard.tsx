@@ -63,6 +63,7 @@ interface Transaction {
   exchange_rate: number;
   converted_amount: number;
   type: 'income' | 'expense' | 'withdrawal';
+  tags: string[] | null;
   description: string | null;
   is_scheduled: boolean;
   scheduled_date: string | null;

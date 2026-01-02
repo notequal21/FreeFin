@@ -69,13 +69,13 @@ const transactionSchema = z.object({
   category_id: z.string().uuid().nullable().optional(),
   project_id: z.string().uuid().nullable().optional(),
   counterparty_id: z.string().uuid().nullable().optional(),
-  amount: z.coerce.number().positive('Сумма должна быть положительной'),
+  amount: z.number().positive('Сумма должна быть положительной'),
   transaction_currency: z.enum(['USD', 'RUB']).optional(),
-  exchange_rate: z.coerce.number().positive().default(1),
+  exchange_rate: z.number().positive(),
   type: z.enum(['income', 'expense', 'withdrawal']),
-  tags: z.array(z.string()).default([]),
+  tags: z.array(z.string()),
   description: z.string().nullable().optional(),
-  is_scheduled: z.boolean().default(false),
+  is_scheduled: z.boolean(),
   scheduled_date: z.date().nullable().optional(),
 });
 

@@ -55,20 +55,21 @@ interface Transaction {
   exchange_rate: number;
   converted_amount: number;
   type: 'income' | 'expense' | 'withdrawal';
+  tags: string[] | null;
   description: string | null;
   is_scheduled: boolean;
   scheduled_date: string | null;
   created_at: string;
-  accounts: {
+  accounts?: {
     id: string;
     name: string;
-    currency: 'USD' | 'RUB';
+    currency: string;
   } | null;
-  categories: {
+  categories?: {
     id: string;
     name: string;
   } | null;
-  projects: {
+  projects?: {
     id: string;
     title: string;
   } | null;
@@ -637,8 +638,8 @@ export function CounterpartyDetails({
                                 transaction.type
                               )}`}
                             >
-                              {transaction.accounts
-                                ? formatAmount(transaction.amount, transaction.accounts.currency)
+                              {transaction.accounts && (transaction.accounts.currency === 'USD' || transaction.accounts.currency === 'RUB')
+                                ? formatAmount(transaction.amount, transaction.accounts.currency as 'USD' | 'RUB')
                                 : transaction.amount}
                             </span>
                           </td>
@@ -754,7 +755,12 @@ export function CounterpartyDetails({
               router.refresh();
             }
           }}
-          transaction={editingTransaction}
+          transaction={{
+            ...editingTransaction,
+            accounts: editingTransaction.accounts ?? undefined,
+            categories: editingTransaction.categories ?? undefined,
+            projects: editingTransaction.projects ?? undefined,
+          }}
           formData={transactionFormData}
         />
       )}

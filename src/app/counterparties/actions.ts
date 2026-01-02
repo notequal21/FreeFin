@@ -8,7 +8,7 @@ import { revalidatePath } from 'next/cache';
 const createCounterpartySchema = z.object({
   name: z.string().min(1, 'Название контрагента обязательно'),
   type: z.enum(['client', 'contractor'], {
-    errorMap: () => ({ message: 'Тип должен быть client или contractor' }),
+    message: 'Тип должен быть client или contractor',
   }),
 });
 
@@ -17,7 +17,7 @@ const updateCounterpartySchema = z.object({
   id: z.string().uuid('Некорректный ID контрагента'),
   name: z.string().min(1, 'Название контрагента обязательно'),
   type: z.enum(['client', 'contractor'], {
-    errorMap: () => ({ message: 'Тип должен быть client или contractor' }),
+    message: 'Тип должен быть client или contractor',
   }),
 });
 

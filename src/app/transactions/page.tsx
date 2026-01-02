@@ -17,7 +17,16 @@ export default async function TransactionsPage({
 
   const supabase = await createClient();
   const params = await searchParams;
-  const type = params.type as 'income' | 'expense' | 'withdrawal' | undefined;
+  const typeParam = params.type;
+  // Преобразуем 'transfer' в 'withdrawal' для фильтрации в БД
+  const dbType: 'income' | 'expense' | 'withdrawal' | undefined =
+    typeParam === 'transfer'
+      ? 'withdrawal'
+      : typeParam === 'income' ||
+        typeParam === 'expense' ||
+        typeParam === 'withdrawal'
+      ? typeParam
+      : undefined;
 
   // Получаем транзакции с фильтрацией по типу
   let query = supabase
@@ -46,8 +55,8 @@ export default async function TransactionsPage({
     )
     .order('created_at', { ascending: false });
 
-  if (type) {
-    query = query.eq('type', type === 'transfer' ? 'withdrawal' : type);
+  if (dbType) {
+    query = query.eq('type', dbType);
   }
 
   const { data: transactions, error } = await query;
@@ -68,7 +77,7 @@ export default async function TransactionsPage({
       {/* Табы для фильтрации */}
       <TransactionsTabs
         transactions={transactions || []}
-        formData={formDataResult.data}
+        formData={formDataResult.data || undefined}
       />
     </div>
   );

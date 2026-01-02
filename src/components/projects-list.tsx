@@ -196,6 +196,7 @@ export function ProjectsList({ projects }: ProjectsListProps) {
           title: editingProject.title,
           budget: editingProject.budget,
           currency: editingProject.currency,
+          exchange_rate: (editingProject as any).exchange_rate ?? null,
           counterparty_id: editingProject.counterparty_id,
         } : null}
       />

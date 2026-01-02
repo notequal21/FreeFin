@@ -36,7 +36,7 @@ import { useEffect } from 'react';
 const categorySchema = z.object({
   name: z.string().min(1, 'Название категории обязательно'),
   type: z.enum(['income', 'expense'], {
-    errorMap: () => ({ message: 'Тип должен быть income или expense' }),
+    message: 'Тип должен быть income или expense',
   }),
 });
 

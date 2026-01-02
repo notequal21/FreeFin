@@ -9,7 +9,7 @@ const createAccountSchema = z.object({
   name: z.string().min(1, 'Название счета обязательно'),
   balance: z.coerce.number().default(0),
   currency: z.enum(['USD', 'RUB'], {
-    errorMap: () => ({ message: 'Валюта должна быть USD или RUB' }),
+    message: 'Валюта должна быть USD или RUB',
   }),
 });
 
@@ -19,7 +19,7 @@ const updateAccountSchema = z.object({
   id: z.string().uuid('Некорректный ID счета'),
   name: z.string().min(1, 'Название счета обязательно'),
   currency: z.enum(['USD', 'RUB'], {
-    errorMap: () => ({ message: 'Валюта должна быть USD или RUB' }),
+    message: 'Валюта должна быть USD или RUB',
   }),
 });
 
