@@ -36,6 +36,7 @@ CREATE TABLE public.profiles (
   full_name text,
   primary_currency text DEFAULT 'RUB' CHECK (primary_currency = ANY (ARRAY['USD', 'RUB'])),
   is_approved boolean DEFAULT false,
+  default_exchange_rate numeric DEFAULT 100 CHECK (default_exchange_rate > 0),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE
@@ -64,18 +65,8 @@ CREATE TABLE public.categories (
   CONSTRAINT categories_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
 );
 
--- Таблица projects (проекты)
-CREATE TABLE public.projects (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL,
-  title text NOT NULL,
-  budget numeric DEFAULT 0,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT projects_pkey PRIMARY KEY (id),
-  CONSTRAINT projects_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
-);
-
 -- Таблица counterparties (контрагенты)
+-- Создается ДО projects, так как projects ссылается на counterparties
 CREATE TABLE public.counterparties (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
@@ -84,6 +75,21 @@ CREATE TABLE public.counterparties (
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT counterparties_pkey PRIMARY KEY (id),
   CONSTRAINT counterparties_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+);
+
+-- Таблица projects (проекты)
+CREATE TABLE public.projects (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  title text NOT NULL,
+  budget numeric, -- Бюджет проекта (NULL, если не указан)
+  currency text CHECK (currency = ANY (ARRAY['USD', 'RUB'])), -- Валюта бюджета (NULL, если бюджет не указан)
+  exchange_rate numeric CHECK (exchange_rate > 0), -- Курс обмена RUB/USD для проекта (NULL, если используется курс по умолчанию)
+  counterparty_id uuid, -- Ссылка на контрагента (NULL, если контрагент не указан)
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT projects_pkey PRIMARY KEY (id),
+  CONSTRAINT projects_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE,
+  CONSTRAINT projects_counterparty_id_fkey FOREIGN KEY (counterparty_id) REFERENCES public.counterparties(id) ON DELETE SET NULL
 );
 
 -- Таблица transactions (транзакции)
@@ -97,6 +103,7 @@ CREATE TABLE public.transactions (
   amount numeric NOT NULL,
   exchange_rate numeric DEFAULT 1,
   converted_amount numeric, -- Вычисляется триггером
+  project_exchange_rate numeric, -- Курс обмена от primary_currency к валюте проекта на момент создания транзакции
   type text NOT NULL CHECK (type = ANY (ARRAY['income', 'expense', 'withdrawal'])),
   tags text[],
   description text,
@@ -325,13 +332,30 @@ CREATE TRIGGER on_auth_user_created
   EXECUTE FUNCTION public.handle_new_user();
 
 -- Функция для автоматического вычисления converted_amount
+-- ВАЖНО: При UPDATE exchange_rate для существующей транзакции сохраняет старое значение converted_amount,
+-- фиксируя конвертированную сумму в момент создания транзакции
 CREATE OR REPLACE FUNCTION public.calculate_converted_amount()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
 BEGIN
-  -- Вычисляем converted_amount = amount * exchange_rate
-  NEW.converted_amount := NEW.amount * COALESCE(NEW.exchange_rate, 1);
+  -- При INSERT всегда вычисляем converted_amount
+  IF TG_OP = 'INSERT' THEN
+    NEW.converted_amount := NEW.amount * COALESCE(NEW.exchange_rate, 1);
+  ELSIF TG_OP = 'UPDATE' THEN
+    -- При UPDATE пересчитываем converted_amount только если изменился amount
+    -- Если изменился только exchange_rate, сохраняем старое значение converted_amount
+    -- Это позволяет фиксировать конвертированную сумму в момент создания транзакции
+    IF OLD.amount IS DISTINCT FROM NEW.amount THEN
+      -- Если изменился amount, пересчитываем converted_amount
+      NEW.converted_amount := NEW.amount * COALESCE(NEW.exchange_rate, 1);
+    ELSE
+      -- Если изменился только exchange_rate, сохраняем старое значение converted_amount
+      -- Это фиксирует конвертированную сумму в момент создания транзакции
+      NEW.converted_amount := OLD.converted_amount;
+    END IF;
+  END IF;
+  
   RETURN NEW;
 END;
 $$;

@@ -1,4 +1,6 @@
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, getAuth } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+import { SettingsForm } from "@/components/settings-form";
 
 /**
  * Страница настроек
@@ -7,14 +9,31 @@ import { requireAuth } from "@/lib/auth";
 export default async function SettingsPage() {
   await requireAuth();
 
+  const supabase = await createClient();
+  const auth = await getAuth();
+
+  // Получаем профиль пользователя
+  let profile = null;
+  if (auth?.user) {
+    const { data } = await supabase
+      .from('profiles')
+      .select('default_exchange_rate, primary_currency')
+      .eq('id', auth.user.id)
+      .maybeSingle();
+    
+    profile = data;
+  }
+
   return (
     <div className="container mx-auto p-6">
       <h1 className="mb-6 text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
         Настройки
       </h1>
-      <p className="text-zinc-600 dark:text-zinc-400">
-        Настройки приложения будут здесь
-      </p>
+      
+      <SettingsForm 
+        defaultExchangeRate={profile?.default_exchange_rate || 100}
+        primaryCurrency={profile?.primary_currency || 'RUB'}
+      />
     </div>
   );
 }

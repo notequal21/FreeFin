@@ -58,7 +58,80 @@ export async function createTransaction(formData: FormData) {
 
     const validatedData = createTransactionSchema.parse(rawData);
 
+    // Если транзакция создается для проекта, вычисляем и сохраняем курс к валюте проекта
+    let projectExchangeRate: number | null = null;
+
+    if (validatedData.project_id) {
+      // Получаем валюту проекта, валюту счета и профиль пользователя
+      const [projectResult, accountResult, profileResult] = await Promise.all([
+        supabase
+          .from('projects')
+          .select('currency, exchange_rate')
+          .eq('id', validatedData.project_id)
+          .eq('user_id', user.id)
+          .single(),
+        supabase
+          .from('accounts')
+          .select('currency')
+          .eq('id', validatedData.account_id)
+          .eq('user_id', user.id)
+          .single(),
+        supabase
+          .from('profiles')
+          .select('primary_currency, default_exchange_rate')
+          .eq('id', user.id)
+          .maybeSingle(),
+      ]);
+
+      const projectCurrency = projectResult.data?.currency;
+      const projectExchangeRateFromProject = projectResult.data?.exchange_rate;
+      const accountCurrency = accountResult.data?.currency || 'RUB';
+      const primaryCurrency = profileResult.data?.primary_currency || 'RUB';
+      const defaultExchangeRate =
+        profileResult.data?.default_exchange_rate || 100;
+
+      // Используем курс проекта, если он указан, иначе курс по умолчанию из профиля
+      const exchangeRateToUse =
+        projectExchangeRateFromProject || defaultExchangeRate;
+
+      // Определяем валюту транзакции
+      // Если exchange_rate !== 1, то транзакция в валюте, отличной от валюты счета
+      const isTransactionInDifferentCurrency =
+        validatedData.exchange_rate !== 1;
+      const transactionCurrency = isTransactionInDifferentCurrency
+        ? accountCurrency === 'RUB'
+          ? 'USD'
+          : 'RUB'
+        : accountCurrency;
+
+      // project_exchange_rate нужен только если:
+      // 1. Валюта проекта указана
+      // 2. Валюта проекта отличается от валюты транзакции
+      // 3. Валюта проекта отличается от валюты счета
+      // 4. Валюта проекта отличается от primary_currency
+      // (иначе конвертация не нужна или уже выполнена через exchange_rate)
+      if (
+        projectCurrency &&
+        projectCurrency !== transactionCurrency &&
+        projectCurrency !== accountCurrency &&
+        projectCurrency !== primaryCurrency
+      ) {
+        // Используем курс проекта (если указан) или курс по умолчанию для конвертации из primary_currency в валюту проекта
+        // project_exchange_rate - это курс от primary_currency к валюте проекта
+        if (primaryCurrency === 'RUB' && projectCurrency === 'USD') {
+          // Конвертация RUB -> USD: курс = 1 / exchange_rate (сколько долларов за рубль)
+          projectExchangeRate = 1 / exchangeRateToUse;
+        } else if (primaryCurrency === 'USD' && projectCurrency === 'RUB') {
+          // Конвертация USD -> RUB: курс = exchange_rate (сколько рублей за доллар)
+          projectExchangeRate = exchangeRateToUse;
+        }
+      }
+    }
+
     // Создаем транзакцию
+    // Примечание:
+    // - exchange_rate используется для конвертации в primary_currency
+    // - project_exchange_rate сохраняет курс к валюте проекта на момент создания транзакции
     const { data, error } = await supabase
       .from('transactions')
       .insert({
@@ -69,6 +142,7 @@ export async function createTransaction(formData: FormData) {
         counterparty_id: validatedData.counterparty_id || null,
         amount: validatedData.amount,
         exchange_rate: validatedData.exchange_rate,
+        project_exchange_rate: projectExchangeRate,
         type: validatedData.type,
         tags: validatedData.tags || [],
         description: validatedData.description || null,
@@ -139,7 +213,79 @@ export async function updateTransaction(formData: FormData) {
       .eq('user_id', user.id)
       .single();
 
+    // Если транзакция обновляется для проекта, вычисляем и сохраняем курс к валюте проекта
+    let projectExchangeRate: number | null = null;
+
+    if (validatedData.project_id) {
+      // Получаем валюту проекта, валюту счета и профиль пользователя
+      const [projectResult, accountResult, profileResult] = await Promise.all([
+        supabase
+          .from('projects')
+          .select('currency, exchange_rate')
+          .eq('id', validatedData.project_id)
+          .eq('user_id', user.id)
+          .single(),
+        supabase
+          .from('accounts')
+          .select('currency')
+          .eq('id', validatedData.account_id)
+          .eq('user_id', user.id)
+          .single(),
+        supabase
+          .from('profiles')
+          .select('primary_currency, default_exchange_rate')
+          .eq('id', user.id)
+          .maybeSingle(),
+      ]);
+
+      const projectCurrency = projectResult.data?.currency;
+      const projectExchangeRateFromProject = projectResult.data?.exchange_rate;
+      const accountCurrency = accountResult.data?.currency || 'RUB';
+      const primaryCurrency = profileResult.data?.primary_currency || 'RUB';
+      const defaultExchangeRate =
+        profileResult.data?.default_exchange_rate || 100;
+
+      // Используем курс проекта, если он указан, иначе курс по умолчанию из профиля
+      const exchangeRateToUse =
+        projectExchangeRateFromProject || defaultExchangeRate;
+
+      // Определяем валюту транзакции
+      // Если exchange_rate !== 1, то транзакция в валюте, отличной от валюты счета
+      const isTransactionInDifferentCurrency =
+        validatedData.exchange_rate !== 1;
+      const transactionCurrency = isTransactionInDifferentCurrency
+        ? accountCurrency === 'RUB'
+          ? 'USD'
+          : 'RUB'
+        : accountCurrency;
+
+      // project_exchange_rate нужен только если:
+      // 1. Валюта проекта указана
+      // 2. Валюта проекта отличается от валюты транзакции
+      // 3. Валюта проекта отличается от валюты счета
+      // 4. Валюта проекта отличается от primary_currency
+      // (иначе конвертация не нужна или уже выполнена через exchange_rate)
+      if (
+        projectCurrency &&
+        projectCurrency !== transactionCurrency &&
+        projectCurrency !== accountCurrency &&
+        projectCurrency !== primaryCurrency
+      ) {
+        // Используем курс проекта (если указан) или курс по умолчанию для конвертации из primary_currency в валюту проекта
+        if (primaryCurrency === 'RUB' && projectCurrency === 'USD') {
+          // Конвертация RUB -> USD: курс = 1 / exchange_rate (сколько долларов за рубль)
+          projectExchangeRate = 1 / exchangeRateToUse;
+        } else if (primaryCurrency === 'USD' && projectCurrency === 'RUB') {
+          // Конвертация USD -> RUB: курс = exchange_rate (сколько рублей за доллар)
+          projectExchangeRate = exchangeRateToUse;
+        }
+      }
+    }
+
     // Обновляем транзакцию
+    // Примечание:
+    // - exchange_rate используется для конвертации в primary_currency
+    // - project_exchange_rate сохраняет курс к валюте проекта на момент обновления транзакции
     const { data, error } = await supabase
       .from('transactions')
       .update({
@@ -149,6 +295,7 @@ export async function updateTransaction(formData: FormData) {
         counterparty_id: validatedData.counterparty_id || null,
         amount: validatedData.amount,
         exchange_rate: validatedData.exchange_rate,
+        project_exchange_rate: projectExchangeRate,
         type: validatedData.type,
         tags: validatedData.tags || [],
         description: validatedData.description || null,
@@ -320,17 +467,23 @@ export async function getTransactionFormData() {
       return { error: 'Необходима аутентификация', data: null };
     }
 
-    // Получаем все необходимые данные параллельно
+    // Получаем все необходимые данные параллельно, включая профиль для курса по умолчанию
     const [
       accountsResult,
       categoriesResult,
       projectsResult,
       counterpartiesResult,
+      profileResult,
     ] = await Promise.all([
       supabase.from('accounts').select('id, name, currency').order('name'),
       supabase.from('categories').select('id, name, type').order('name'),
       supabase.from('projects').select('id, title').order('title'),
       supabase.from('counterparties').select('id, name').order('name'),
+      supabase
+        .from('profiles')
+        .select('default_exchange_rate, primary_currency')
+        .eq('id', user.id)
+        .maybeSingle(),
     ]);
 
     return {
@@ -339,6 +492,8 @@ export async function getTransactionFormData() {
         categories: categoriesResult.data || [],
         projects: projectsResult.data || [],
         counterparties: counterpartiesResult.data || [],
+        defaultExchangeRate: profileResult.data?.default_exchange_rate || 100,
+        primaryCurrency: profileResult.data?.primary_currency || 'RUB',
       },
       success: true,
     };

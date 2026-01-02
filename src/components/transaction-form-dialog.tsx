@@ -70,11 +70,15 @@ interface TransactionFormDialogProps {
   onOpenChange: (open: boolean) => void;
   transaction?: Transaction | null;
   defaultType?: 'income' | 'expense' | 'withdrawal';
+  defaultProjectId?: string | null;
+  defaultCounterpartyId?: string | null;
   formData?: {
     accounts: Array<{ id: string; name: string; currency: string }>;
     categories: Array<{ id: string; name: string; type: string }>;
     projects: Array<{ id: string; title: string }>;
     counterparties: Array<{ id: string; name: string }>;
+    defaultExchangeRate?: number;
+    primaryCurrency?: string;
   };
 }
 
@@ -86,6 +90,8 @@ export function TransactionFormDialog({
   onOpenChange,
   transaction,
   defaultType,
+  defaultProjectId,
+  defaultCounterpartyId,
   formData,
 }: TransactionFormDialogProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -119,6 +125,35 @@ export function TransactionFormDialog({
   // Показываем курс обмена только если валюта транзакции отличается от валюты счета
   const showExchangeRate = transactionCurrency !== accountCurrency;
 
+  // Автоматически заполняем курс по умолчанию при изменении валюты транзакции
+  useEffect(() => {
+    // Пропускаем, если это редактирование существующей транзакции
+    if (transaction) {
+      return;
+    }
+
+    // Если валюта транзакции отличается от валюты счета
+    if (showExchangeRate && formData?.defaultExchangeRate) {
+      const currentExchangeRate = form.watch('exchange_rate');
+      // Заполняем курс по умолчанию, если:
+      // 1. Курс равен 1 (начальное значение) - значит пользователь еще не вводил курс
+      // 2. Или валюта транзакции только что изменилась (т.е. пользователь выбрал другую валюту)
+      if (currentExchangeRate === 1) {
+        form.setValue('exchange_rate', formData.defaultExchangeRate);
+      }
+    } else if (!showExchangeRate) {
+      // Если валюта транзакции совпадает с валютой счета, сбрасываем курс на 1
+      form.setValue('exchange_rate', 1);
+    }
+  }, [
+    transactionCurrency,
+    accountCurrency,
+    showExchangeRate,
+    formData?.defaultExchangeRate,
+    form,
+    transaction,
+  ]);
+
   // Обновляем форму при изменении transaction или defaultType
   useEffect(() => {
     if (transaction) {
@@ -138,12 +173,13 @@ export function TransactionFormDialog({
         description: transaction.description || null,
       });
       setTagInput('');
-    } else {
+    } else if (open) {
+      // Обновляем форму только при открытии модалки, если нет транзакции
       form.reset({
         account_id: '',
         category_id: null,
-        project_id: null,
-        counterparty_id: null,
+        project_id: defaultProjectId || null,
+        counterparty_id: defaultCounterpartyId || null,
         amount: 0,
         transaction_currency: undefined,
         exchange_rate: 1,
@@ -153,7 +189,15 @@ export function TransactionFormDialog({
       });
       setTagInput('');
     }
-  }, [transaction, defaultType, form, formData]);
+  }, [
+    transaction,
+    defaultType,
+    defaultProjectId,
+    defaultCounterpartyId,
+    open,
+    form,
+    formData,
+  ]);
 
   // Получаем категории для текущего типа транзакции
   const availableCategories =
@@ -462,7 +506,22 @@ export function TransactionFormDialog({
                   <FormItem>
                     <FormLabel>Валюта транзакции</FormLabel>
                     <Select
-                      onValueChange={field.onChange}
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        // Автоматически заполняем курс по умолчанию при изменении валюты транзакции
+                        if (
+                          value !== accountCurrency &&
+                          formData?.defaultExchangeRate &&
+                          !transaction
+                        ) {
+                          form.setValue(
+                            'exchange_rate',
+                            formData.defaultExchangeRate
+                          );
+                        } else if (value === accountCurrency) {
+                          form.setValue('exchange_rate', 1);
+                        }
+                      }}
                       value={field.value || accountCurrency}
                     >
                       <FormControl>

@@ -22,7 +22,8 @@ export default async function TransactionsPage({
   // Получаем транзакции с фильтрацией по типу
   let query = supabase
     .from('transactions')
-    .select(`
+    .select(
+      `
       *,
       accounts:account_id (
         id,
@@ -41,7 +42,8 @@ export default async function TransactionsPage({
         id,
         name
       )
-    `)
+    `
+    )
     .order('created_at', { ascending: false });
 
   if (type) {
@@ -71,4 +73,3 @@ export default async function TransactionsPage({
     </div>
   );
 }
-
