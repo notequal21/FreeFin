@@ -22,6 +22,8 @@ export interface Transaction {
   type: 'income' | 'expense' | 'withdrawal';
   tags: string[] | null;
   description: string | null;
+  is_scheduled: boolean;
+  scheduled_date: string | null;
   created_at: string;
   accounts?: {
     id: string;

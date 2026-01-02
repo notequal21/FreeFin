@@ -17,6 +17,13 @@ const createTransactionSchema = z.object({
   }),
   tags: z.array(z.string()).optional().default([]),
   description: z.string().nullable().optional(),
+  is_scheduled: z.preprocess((val) => {
+    if (typeof val === 'string') {
+      return val === 'true';
+    }
+    return val === true;
+  }, z.boolean().default(false)),
+  scheduled_date: z.string().nullable().optional(),
 });
 
 // Схема валидации для обновления транзакции
@@ -54,6 +61,8 @@ export async function createTransaction(formData: FormData) {
         ? JSON.parse(formData.get('tags') as string)
         : [],
       description: formData.get('description') as string | null,
+      is_scheduled: formData.get('is_scheduled') as string | undefined,
+      scheduled_date: formData.get('scheduled_date') as string | null,
     };
 
     const validatedData = createTransactionSchema.parse(rawData);
@@ -146,6 +155,8 @@ export async function createTransaction(formData: FormData) {
         type: validatedData.type,
         tags: validatedData.tags || [],
         description: validatedData.description || null,
+        is_scheduled: validatedData.is_scheduled || false,
+        scheduled_date: validatedData.scheduled_date || null,
       })
       .select()
       .single();
@@ -201,6 +212,8 @@ export async function updateTransaction(formData: FormData) {
         ? JSON.parse(formData.get('tags') as string)
         : [],
       description: formData.get('description') as string | null,
+      is_scheduled: formData.get('is_scheduled') as string | undefined,
+      scheduled_date: formData.get('scheduled_date') as string | null,
     };
 
     const validatedData = updateTransactionSchema.parse(rawData);
@@ -299,6 +312,8 @@ export async function updateTransaction(formData: FormData) {
         type: validatedData.type,
         tags: validatedData.tags || [],
         description: validatedData.description || null,
+        is_scheduled: validatedData.is_scheduled || false,
+        scheduled_date: validatedData.scheduled_date || null,
       })
       .eq('id', validatedData.id)
       .eq('user_id', user.id)

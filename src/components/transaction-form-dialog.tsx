@@ -34,10 +34,21 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
 import { useEffect, useState } from 'react';
 import { Transaction } from './transactions-list';
-import { X } from 'lucide-react';
+import { X, CalendarIcon } from 'lucide-react';
+import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
+import { ru as ruDayPicker } from 'react-day-picker/locale';
+import { cn } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,6 +72,8 @@ const transactionSchema = z.object({
   type: z.enum(['income', 'expense', 'withdrawal']),
   tags: z.array(z.string()).default([]),
   description: z.string().nullable().optional(),
+  is_scheduled: z.boolean().default(false),
+  scheduled_date: z.date().nullable().optional(),
 });
 
 type TransactionFormData = z.infer<typeof transactionSchema>;
@@ -111,6 +124,8 @@ export function TransactionFormDialog({
       type: defaultType || 'income',
       tags: [],
       description: null,
+      is_scheduled: false,
+      scheduled_date: null,
     },
   });
 
@@ -171,6 +186,10 @@ export function TransactionFormDialog({
         type: transaction.type,
         tags: transaction.tags || [],
         description: transaction.description || null,
+        is_scheduled: transaction.is_scheduled || false,
+        scheduled_date: transaction.scheduled_date
+          ? new Date(transaction.scheduled_date)
+          : null,
       });
       setTagInput('');
     } else if (open) {
@@ -186,6 +205,8 @@ export function TransactionFormDialog({
         type: defaultType || 'income',
         tags: [],
         description: null,
+        is_scheduled: false,
+        scheduled_date: null,
       });
       setTagInput('');
     }
@@ -226,6 +247,12 @@ export function TransactionFormDialog({
     formDataObj.append('tags', JSON.stringify(data.tags || []));
     if (data.description) {
       formDataObj.append('description', data.description);
+    }
+    formDataObj.append('is_scheduled', data.is_scheduled ? 'true' : 'false');
+    if (data.is_scheduled && data.scheduled_date) {
+      // Форматируем дату в формат YYYY-MM-DD для отправки на сервер
+      const dateStr = format(data.scheduled_date, 'yyyy-MM-dd');
+      formDataObj.append('scheduled_date', dateStr);
     }
 
     if (transaction) {
@@ -657,6 +684,83 @@ export function TransactionFormDialog({
                   );
                 }}
               />
+
+              {/* Поля для запланированной транзакции */}
+              <FormField
+                control={form.control}
+                name='is_scheduled'
+                render={({ field }) => (
+                  <FormItem>
+                    <div className='flex items-start space-x-3 rounded-md border p-4'>
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          className='mt-0.5'
+                        />
+                      </FormControl>
+                      <div className='space-y-1 leading-none flex-1'>
+                        <FormLabel
+                          className='cursor-pointer font-normal'
+                          onClick={() => field.onChange(!field.value)}
+                        >
+                          Запланированная транзакция
+                        </FormLabel>
+                        <p className='text-sm text-muted-foreground'>
+                          Отметьте, если это запланированная транзакция,
+                          требующая ручного подтверждения
+                        </p>
+                      </div>
+                    </div>
+                  </FormItem>
+                )}
+              />
+
+              {/* Датапикер для даты платежа (показывается только если чекбокс активен) */}
+              {form.watch('is_scheduled') && (
+                <FormField
+                  control={form.control}
+                  name='scheduled_date'
+                  render={({ field }) => (
+                    <FormItem className='flex flex-col'>
+                      <FormLabel>Дата платежа</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant={'outline'}
+                              className={cn(
+                                'w-full pl-3 text-left font-normal',
+                                !field.value && 'text-muted-foreground'
+                              )}
+                            >
+                              {field.value ? (
+                                format(field.value, 'PPP', { locale: ru })
+                              ) : (
+                                <span>Выберите дату</span>
+                              )}
+                              <CalendarIcon className='ml-auto h-4 w-4 opacity-50' />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className='w-auto p-0' align='start'>
+                          <Calendar
+                            mode='single'
+                            selected={field.value || undefined}
+                            onSelect={field.onChange}
+                            disabled={(date) =>
+                              date < new Date(new Date().setHours(0, 0, 0, 0))
+                            }
+                            locale={ruDayPicker}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               <DialogFooter>
                 {transaction && (

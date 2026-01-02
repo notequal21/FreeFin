@@ -123,3 +123,85 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Стили для календаря react-day-picker v9 - выделение выбранного дня */
+.rdp-selected,
+.rdp-day_button[aria-selected='true'] {
+  background-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  border-radius: calc(var(--radius) - 2px);
+}
+
+.rdp-selected:hover,
+.rdp-day_button[aria-selected='true']:hover {
+  background-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+}
+
+/* Позиционирование для навигации календаря */
+.rdp-months {
+  position: relative;
+}
+
+.rdp-nav {
+  position: absolute;
+  right: 0;
+  margin: 0;
+}
+
+/* Стили для кнопок навигации календаря с поддержкой темной темы */
+.rdp-nav button,
+.rdp-caption button {
+  border-color: hsl(var(--border));
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+.rdp-nav button:hover:not(:disabled),
+.rdp-caption button:hover:not(:disabled) {
+  background-color: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+.rdp-nav button:disabled,
+.rdp-caption button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.dark .rdp-nav button,
+.dark .rdp-caption button {
+  border-color: hsl(var(--border));
+  background-color: hsl(var(--background));
+  color: white !important;
+}
+
+.dark .rdp-nav button:hover:not(:disabled),
+.dark .rdp-caption button:hover:not(:disabled) {
+  background-color: hsl(var(--accent));
+  color: white !important;
+}
+
+.dark .rdp-nav button svg,
+.dark .rdp-caption button svg {
+  color: white !important;
+}
+
+/* Стили для стандартных кнопок навигации react-day-picker */
+.dark .rdp-button_next,
+.dark .rdp-button_previous {
+  color: white !important;
+}
+
+.dark .rdp-button_next svg,
+.dark .rdp-button_previous svg,
+.dark .rdp-chevron {
+  color: white !important;
+  fill: white !important;
+  stroke: white !important;
+}
+
+.dark .rdp-chevron polygon {
+  fill: white !important;
+  stroke: white !important;
+}

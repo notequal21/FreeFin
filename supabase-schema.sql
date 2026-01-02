@@ -78,6 +78,8 @@ CREATE TABLE public.transactions (
   type text NOT NULL CHECK (type = ANY (ARRAY['income', 'expense', 'withdrawal'])),
   tags text[],
   description text,
+  is_scheduled boolean DEFAULT false NOT NULL, -- Флаг запланированной транзакции
+  scheduled_date date, -- Дата платежа для запланированной транзакции (информационное поле)
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT transactions_pkey PRIMARY KEY (id),
   CONSTRAINT transactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE,
