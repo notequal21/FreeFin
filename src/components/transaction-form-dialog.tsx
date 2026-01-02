@@ -49,6 +49,9 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { ru as ruDayPicker } from 'react-day-picker/locale';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Tag01Icon } from '@hugeicons/core-free-icons';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -414,7 +417,24 @@ export function TransactionFormDialog({
                   name='category_id'
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Категория</FormLabel>
+                      <div className='flex items-center justify-between'>
+                        <FormLabel>Категория</FormLabel>
+                        <Link href='/settings/categories'>
+                          <Button
+                            type='button'
+                            variant='ghost'
+                            size='sm'
+                            className='h-8 text-xs'
+                          >
+                            <HugeiconsIcon
+                              icon={Tag01Icon}
+                              size={16}
+                              className='mr-1'
+                            />
+                            Управление
+                          </Button>
+                        </Link>
+                      </div>
                       <Select
                         onValueChange={(value) =>
                           field.onChange(value === '__none__' ? null : value)

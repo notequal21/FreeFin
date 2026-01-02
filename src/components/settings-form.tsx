@@ -33,6 +33,9 @@ import { PasswordChangeForm } from '@/components/password-change-form';
 import { EmailChangeForm } from '@/components/email-change-form';
 import { toast } from 'sonner';
 import { useState } from 'react';
+import Link from 'next/link';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Tag01Icon } from '@hugeicons/core-free-icons';
 
 // Схема валидации для формы настроек
 const settingsSchema = z.object({
@@ -212,6 +215,24 @@ export function SettingsForm({ fullName, defaultExchangeRate, primaryCurrency }:
         </CardHeader>
         <CardContent>
           <EmailChangeForm />
+        </CardContent>
+      </Card>
+
+      {/* Карточка для управления категориями */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Категории</CardTitle>
+          <CardDescription>
+            Управление категориями для доходов и расходов. Создавайте, редактируйте и удаляйте свои категории.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link href="/settings/categories">
+            <Button variant="outline" className="w-full">
+              <HugeiconsIcon icon={Tag01Icon} size={20} className="mr-2" />
+              Управление категориями
+            </Button>
+          </Link>
         </CardContent>
       </Card>
     </div>
