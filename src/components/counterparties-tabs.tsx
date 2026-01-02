@@ -4,11 +4,23 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Users, Briefcase } from 'lucide-react';
+import { CounterpartiesList } from '@/components/counterparties-list';
+
+interface Counterparty {
+  id: string;
+  name: string;
+  type: 'client' | 'contractor';
+  created_at: string;
+}
+
+interface CounterpartiesTabsProps {
+  counterparties: Counterparty[];
+}
 
 /**
  * Компонент табов для фильтрации контрагентов
  */
-export function CounterpartiesTabs() {
+export function CounterpartiesTabs({ counterparties }: CounterpartiesTabsProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   // Получаем тип контрагента из URL параметра или используем 'all' по умолчанию
@@ -35,6 +47,11 @@ export function CounterpartiesTabs() {
     router.push(`/counterparties${params.toString() ? `?${params.toString()}` : ''}`);
   };
 
+  // Фильтруем контрагентов по типу для каждого таба
+  const allCounterparties = counterparties;
+  const clients = counterparties.filter((c) => c.type === 'client');
+  const contractors = counterparties.filter((c) => c.type === 'contractor');
+
   return (
     <Tabs value={activeTab} onValueChange={handleTabChange} className='w-full'>
       <TabsList className='grid w-full max-w-md grid-cols-3'>
@@ -51,29 +68,17 @@ export function CounterpartiesTabs() {
 
       {/* Контент для всех контрагентов */}
       <TabsContent value='all' className='mt-6'>
-        <div className='rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900'>
-          <p className='text-zinc-600 dark:text-zinc-400'>
-            Здесь будут отображаться все контрагенты
-          </p>
-        </div>
+        <CounterpartiesList counterparties={allCounterparties} />
       </TabsContent>
 
       {/* Контент для клиентов */}
       <TabsContent value='clients' className='mt-6'>
-        <div className='rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900'>
-          <p className='text-zinc-600 dark:text-zinc-400'>
-            Здесь будут отображаться клиенты
-          </p>
-        </div>
+        <CounterpartiesList counterparties={clients} />
       </TabsContent>
 
       {/* Контент для подрядчиков */}
       <TabsContent value='contractors' className='mt-6'>
-        <div className='rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900'>
-          <p className='text-zinc-600 dark:text-zinc-400'>
-            Здесь будут отображаться подрядчики
-          </p>
-        </div>
+        <CounterpartiesList counterparties={contractors} />
       </TabsContent>
     </Tabs>
   );
