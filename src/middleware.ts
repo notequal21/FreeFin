@@ -8,7 +8,7 @@ import type { NextRequest } from 'next/server';
 export function middleware(request: NextRequest) {
   // Создаем копию заголовков запроса
   const requestHeaders = new Headers(request.headers);
-  
+
   // Устанавливаем заголовок с pathname для использования в Server Components
   requestHeaders.set('x-pathname', request.nextUrl.pathname);
 
@@ -35,4 +35,3 @@ export const config = {
     '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
-

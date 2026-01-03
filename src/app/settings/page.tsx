@@ -1,6 +1,6 @@
-import { requireAuth, getAuth } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
-import { SettingsForm } from "@/components/settings-form";
+import { requireAuth, getAuth } from '@/lib/auth';
+import { createClient } from '@/lib/supabase/server';
+import { SettingsForm } from '@/components/settings-form';
 
 /**
  * Страница настроек
@@ -20,17 +20,17 @@ export default async function SettingsPage() {
       .select('full_name, default_exchange_rate, primary_currency')
       .eq('id', auth.user.id)
       .maybeSingle();
-    
+
     profile = data;
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <h1 className="mb-6 text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
+    <div className='container mx-auto p-6'>
+      <h1 className='mb-6 text-2xl font-semibold text-zinc-900 dark:text-zinc-50'>
         Настройки
       </h1>
-      
-      <SettingsForm 
+
+      <SettingsForm
         fullName={profile?.full_name || null}
         defaultExchangeRate={profile?.default_exchange_rate || 100}
         primaryCurrency={profile?.primary_currency || 'RUB'}
@@ -38,4 +38,3 @@ export default async function SettingsPage() {
     </div>
   );
 }
-

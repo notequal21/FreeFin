@@ -61,7 +61,8 @@ export default function ResetPasswordPage() {
 
       // Показываем успешное сообщение (даже если email не существует, для безопасности)
       toast.success('Письмо отправлено', {
-        description: 'Если аккаунт с таким email существует, на него будет отправлено письмо с инструкциями по сбросу пароля',
+        description:
+          'Если аккаунт с таким email существует, на него будет отправлено письмо с инструкциями по сбросу пароля',
       });
 
       // Опционально: перенаправляем на страницу входа через несколько секунд
@@ -84,7 +85,8 @@ export default function ResetPasswordPage() {
         <CardHeader>
           <CardTitle>Сброс пароля</CardTitle>
           <CardDescription>
-            Введите ваш email адрес, и мы отправим вам инструкции по сбросу пароля
+            Введите ваш email адрес, и мы отправим вам инструкции по сбросу
+            пароля
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -123,4 +125,3 @@ export default function ResetPasswordPage() {
     </div>
   );
 }
-

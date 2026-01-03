@@ -23,8 +23,8 @@ export default async function CounterpartiesPage({
     typeParam === 'clients'
       ? 'client'
       : typeParam === 'contractors'
-        ? 'contractor'
-        : null;
+      ? 'contractor'
+      : null;
 
   // Получаем список контрагентов с учетом фильтра
   const { data: counterparties, error } = await getCounterparties(filterType);
@@ -44,4 +44,3 @@ export default async function CounterpartiesPage({
     </div>
   );
 }
-

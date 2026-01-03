@@ -23,9 +23,9 @@ export default async function AccountsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
+    <div className='container mx-auto p-6'>
+      <div className='mb-6 flex items-center justify-between'>
+        <h1 className='text-2xl font-semibold text-zinc-900 dark:text-zinc-50'>
           Счета
         </h1>
       </div>

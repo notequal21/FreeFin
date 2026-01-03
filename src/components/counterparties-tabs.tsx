@@ -20,13 +20,13 @@ interface CounterpartiesTabsProps {
 /**
  * Компонент табов для фильтрации контрагентов
  */
-export function CounterpartiesTabs({ counterparties }: CounterpartiesTabsProps) {
+export function CounterpartiesTabs({
+  counterparties,
+}: CounterpartiesTabsProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   // Получаем тип контрагента из URL параметра или используем 'all' по умолчанию
-  const [activeTab, setActiveTab] = useState(
-    searchParams.get('type') || 'all'
-  );
+  const [activeTab, setActiveTab] = useState(searchParams.get('type') || 'all');
 
   // Синхронизируем состояние с URL при изменении параметров
   useEffect(() => {
@@ -44,7 +44,9 @@ export function CounterpartiesTabs({ counterparties }: CounterpartiesTabsProps) 
     } else {
       params.set('type', value);
     }
-    router.push(`/counterparties${params.toString() ? `?${params.toString()}` : ''}`);
+    router.push(
+      `/counterparties${params.toString() ? `?${params.toString()}` : ''}`
+    );
   };
 
   // Фильтруем контрагентов по типу для каждого таба
@@ -83,4 +85,3 @@ export function CounterpartiesTabs({ counterparties }: CounterpartiesTabsProps) 
     </Tabs>
   );
 }
-

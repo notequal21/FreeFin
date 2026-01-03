@@ -43,7 +43,7 @@ export function AccountsList({ accounts }: AccountsListProps) {
 
   return (
     <>
-      <div className="mb-4">
+      <div className='mb-4'>
         <Button onClick={() => setIsCreateDialogOpen(true)}>
           Создать счет
         </Button>
@@ -51,20 +51,23 @@ export function AccountsList({ accounts }: AccountsListProps) {
 
       {accounts.length === 0 ? (
         <Card>
-          <CardContent className="pt-6">
-            <p className="text-center text-muted-foreground">
+          <CardContent className='pt-6'>
+            <p className='text-center text-muted-foreground'>
               У вас пока нет счетов. Создайте первый счет, чтобы начать работу.
             </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
           {accounts.map((account) => (
-            <Card key={account.id} className="hover:shadow-md transition-shadow">
+            <Card
+              key={account.id}
+              className='hover:shadow-md transition-shadow'
+            >
               <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="mb-1">{account.name}</CardTitle>
+                <div className='flex items-start justify-between'>
+                  <div className='flex-1'>
+                    <CardTitle className='mb-1'>{account.name}</CardTitle>
                     <CardDescription>
                       {account.balance.toLocaleString('ru-RU', {
                         style: 'currency',
@@ -73,10 +76,10 @@ export function AccountsList({ accounts }: AccountsListProps) {
                     </CardDescription>
                   </div>
                   <Button
-                    variant="ghost"
-                    size="icon"
+                    variant='ghost'
+                    size='icon'
                     onClick={() => handleEdit(account)}
-                    className="h-8 w-8"
+                    className='h-8 w-8'
                   >
                     <HugeiconsIcon icon={Edit01Icon} size={16} />
                   </Button>
@@ -84,7 +87,7 @@ export function AccountsList({ accounts }: AccountsListProps) {
               </CardHeader>
               <CardContent>
                 <Link href={`/accounts/${account.id}`}>
-                  <Button variant="outline" className="w-full">
+                  <Button variant='outline' className='w-full'>
                     Открыть счет
                   </Button>
                 </Link>
@@ -113,4 +116,3 @@ export function AccountsList({ accounts }: AccountsListProps) {
     </>
   );
 }
-

@@ -42,11 +42,17 @@ export default async function RootLayout({
   // Если это не страница авторизации, проверяем статус одобрения пользователя
   let shouldShowApprovalPending = false;
   if (!isAuth) {
-    const authData = await getAuth();
-    // Если пользователь залогинен, но не одобрен, показываем только окно ожидания
-    // Если пользователь не залогинен (authData === null), это нормально для страниц авторизации
-    if (authData && (!authData.profile || !authData.profile.is_approved)) {
-      shouldShowApprovalPending = true;
+    try {
+      const authData = await getAuth();
+      // Если пользователь залогинен, но не одобрен, показываем только окно ожидания
+      // Если пользователь не залогинен (authData === null), это нормально для страниц авторизации
+      if (authData && (!authData.profile || !authData.profile.is_approved)) {
+        shouldShowApprovalPending = true;
+      }
+    } catch (error) {
+      // Если произошла ошибка (например, нет переменных окружения), показываем обычный layout
+      // Это позволит пользователю увидеть страницу с ошибкой вместо белого экрана
+      console.error('Ошибка проверки авторизации в layout:', error);
     }
   }
 

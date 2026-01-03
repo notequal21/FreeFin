@@ -39,7 +39,9 @@ export function EmailChangeForm() {
   // Получаем текущий email пользователя
   useEffect(() => {
     const getCurrentEmail = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (user?.email) {
         setCurrentEmail(user.email);
       }
@@ -61,8 +63,11 @@ export function EmailChangeForm() {
 
     try {
       // Получаем текущего пользователя
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
       if (userError || !user?.email) {
         toast.error('Ошибка', {
           description: 'Не удалось получить данные пользователя',
@@ -118,9 +123,10 @@ export function EmailChangeForm() {
 
       // Успешно инициирована смена email
       toast.success('Запрос на смену email отправлен', {
-        description: 'Проверьте почту на старом и новом адресе для подтверждения',
+        description:
+          'Проверьте почту на старом и новом адресе для подтверждения',
       });
-      
+
       form.reset();
       setIsSubmitting(false);
     } catch (error) {
@@ -133,27 +139,23 @@ export function EmailChangeForm() {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-6'>
         {currentEmail && (
-          <div className="rounded-md bg-muted p-3">
-            <p className="text-sm text-muted-foreground">
-              Текущий email: <span className="font-medium">{currentEmail}</span>
+          <div className='rounded-md bg-muted p-3'>
+            <p className='text-sm text-muted-foreground'>
+              Текущий email: <span className='font-medium'>{currentEmail}</span>
             </p>
           </div>
         )}
 
         <FormField
           control={form.control}
-          name="new_email"
+          name='new_email'
           render={({ field }) => (
             <FormItem>
               <FormLabel>Новый email</FormLabel>
               <FormControl>
-                <Input
-                  type="email"
-                  placeholder="new@email.com"
-                  {...field}
-                />
+                <Input type='email' placeholder='new@email.com' {...field} />
               </FormControl>
               <FormDescription>
                 На этот адрес будет отправлено письмо для подтверждения
@@ -165,14 +167,14 @@ export function EmailChangeForm() {
 
         <FormField
           control={form.control}
-          name="password"
+          name='password'
           render={({ field }) => (
             <FormItem>
               <FormLabel>Пароль</FormLabel>
               <FormControl>
                 <Input
-                  type="password"
-                  placeholder="Введите пароль для подтверждения"
+                  type='password'
+                  placeholder='Введите пароль для подтверждения'
                   {...field}
                 />
               </FormControl>
@@ -184,18 +186,18 @@ export function EmailChangeForm() {
           )}
         />
 
-        <div className="rounded-md border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950">
-          <p className="text-sm text-blue-800 dark:text-blue-200">
-            <strong>Важно:</strong> После отправки формы на старый и новый email будут отправлены письма с подтверждением. 
-            Email будет изменен только после подтверждения в обоих письмах.
+        <div className='rounded-md border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950'>
+          <p className='text-sm text-blue-800 dark:text-blue-200'>
+            <strong>Важно:</strong> После отправки формы на старый и новый email
+            будут отправлены письма с подтверждением. Email будет изменен только
+            после подтверждения в обоих письмах.
           </p>
         </div>
 
-        <Button type="submit" disabled={isSubmitting}>
+        <Button type='submit' disabled={isSubmitting}>
           {isSubmitting ? 'Отправка...' : 'Изменить email'}
         </Button>
       </form>
     </Form>
   );
 }
-

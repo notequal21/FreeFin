@@ -29,9 +29,12 @@ interface CounterpartiesListProps {
 /**
  * Компонент списка контрагентов с возможностью создания и редактирования
  */
-export function CounterpartiesList({ counterparties }: CounterpartiesListProps) {
+export function CounterpartiesList({
+  counterparties,
+}: CounterpartiesListProps) {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [editingCounterparty, setEditingCounterparty] = useState<Counterparty | null>(null);
+  const [editingCounterparty, setEditingCounterparty] =
+    useState<Counterparty | null>(null);
 
   const handleEdit = (counterparty: Counterparty) => {
     setEditingCounterparty(counterparty);
@@ -53,7 +56,7 @@ export function CounterpartiesList({ counterparties }: CounterpartiesListProps) 
 
   return (
     <>
-      <div className="mb-4">
+      <div className='mb-4'>
         <Button onClick={() => setIsCreateDialogOpen(true)}>
           Создать контрагента
         </Button>
@@ -61,9 +64,10 @@ export function CounterpartiesList({ counterparties }: CounterpartiesListProps) 
 
       {counterparties.length === 0 ? (
         <Card>
-          <CardContent className="pt-6">
-            <p className="text-center text-muted-foreground">
-              У вас пока нет контрагентов. Создайте первого контрагента, чтобы начать работу.
+          <CardContent className='pt-6'>
+            <p className='text-center text-muted-foreground'>
+              У вас пока нет контрагентов. Создайте первого контрагента, чтобы
+              начать работу.
             </p>
           </CardContent>
         </Card>
@@ -71,25 +75,23 @@ export function CounterpartiesList({ counterparties }: CounterpartiesListProps) 
         <Card>
           <CardHeader>
             <CardTitle>Контрагенты</CardTitle>
-            <CardDescription>
-              Список всех ваших контрагентов
-            </CardDescription>
+            <CardDescription>Список всех ваших контрагентов</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className='overflow-x-auto'>
+              <table className='w-full'>
                 <thead>
-                  <tr className="border-b border-zinc-200 dark:border-zinc-800">
-                    <th className="px-4 py-3 text-left text-sm font-medium text-zinc-900 dark:text-zinc-50">
+                  <tr className='border-b border-zinc-200 dark:border-zinc-800'>
+                    <th className='px-4 py-3 text-left text-sm font-medium text-zinc-900 dark:text-zinc-50'>
                       Название
                     </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-zinc-900 dark:text-zinc-50">
+                    <th className='px-4 py-3 text-left text-sm font-medium text-zinc-900 dark:text-zinc-50'>
                       Тип
                     </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-zinc-900 dark:text-zinc-50">
+                    <th className='px-4 py-3 text-left text-sm font-medium text-zinc-900 dark:text-zinc-50'>
                       Дата создания
                     </th>
-                    <th className="px-4 py-3 text-right text-sm font-medium text-zinc-900 dark:text-zinc-50">
+                    <th className='px-4 py-3 text-right text-sm font-medium text-zinc-900 dark:text-zinc-50'>
                       Действия
                     </th>
                   </tr>
@@ -100,43 +102,46 @@ export function CounterpartiesList({ counterparties }: CounterpartiesListProps) 
                     return (
                       <tr
                         key={counterparty.id}
-                        className="border-b border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors"
+                        className='border-b border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors'
                       >
-                        <td className="px-4 py-3">
+                        <td className='px-4 py-3'>
                           <Link
                             href={`/counterparties/${counterparty.id}`}
-                            className="font-medium text-zinc-900 dark:text-zinc-50 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                            className='font-medium text-zinc-900 dark:text-zinc-50 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors'
                           >
                             {counterparty.name}
                           </Link>
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <TypeIcon className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
-                            <span className="text-sm text-zinc-700 dark:text-zinc-300">
+                        <td className='px-4 py-3'>
+                          <div className='flex items-center gap-2'>
+                            <TypeIcon className='h-4 w-4 text-zinc-500 dark:text-zinc-400' />
+                            <span className='text-sm text-zinc-700 dark:text-zinc-300'>
                               {getTypeLabel(counterparty.type)}
                             </span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400">
-                          {new Date(counterparty.created_at).toLocaleDateString('ru-RU', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                          })}
+                        <td className='px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400'>
+                          {new Date(counterparty.created_at).toLocaleDateString(
+                            'ru-RU',
+                            {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                            }
+                          )}
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-end gap-2">
+                        <td className='px-4 py-3'>
+                          <div className='flex items-center justify-end gap-2'>
                             <Button
-                              variant="ghost"
-                              size="icon"
+                              variant='ghost'
+                              size='icon'
                               onClick={() => handleEdit(counterparty)}
-                              className="h-8 w-8"
+                              className='h-8 w-8'
                             >
                               <HugeiconsIcon icon={Edit01Icon} size={16} />
                             </Button>
                             <Link href={`/counterparties/${counterparty.id}`}>
-                              <Button variant="outline" size="sm">
+                              <Button variant='outline' size='sm'>
                                 Открыть
                               </Button>
                             </Link>
@@ -171,4 +176,3 @@ export function CounterpartiesList({ counterparties }: CounterpartiesListProps) 
     </>
   );
 }
-

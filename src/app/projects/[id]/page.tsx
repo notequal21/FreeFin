@@ -78,7 +78,7 @@ export default async function ProjectDetailsPage({
       .select('primary_currency, default_exchange_rate')
       .eq('id', user.id)
       .maybeSingle();
-    
+
     if (profile?.primary_currency) {
       primaryCurrency = profile.primary_currency;
     }
@@ -88,12 +88,11 @@ export default async function ProjectDetailsPage({
   }
 
   return (
-    <ProjectDetails 
-      project={project} 
-      transactions={transactions || []} 
+    <ProjectDetails
+      project={project}
+      transactions={transactions || []}
       primaryCurrency={primaryCurrency}
       defaultExchangeRate={defaultExchangeRate}
     />
   );
 }
-

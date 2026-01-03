@@ -65,28 +65,34 @@ export async function requireAuth() {
  * @returns Объект с данными пользователя, сессией и профилем, или null если не залогинен
  */
 export async function getAuth() {
-  const supabase = await createClient()
-  
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  try {
+    const supabase = await createClient()
+    
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
 
-  if (!session) {
+    if (!session) {
+      return null
+    }
+
+    // Получаем профиль пользователя
+    // Используем maybeSingle() вместо single() для безопасной обработки
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id, full_name, is_approved, primary_currency')
+      .eq('id', session.user.id)
+      .maybeSingle()
+
+    return {
+      user: session.user,
+      session,
+      profile: profile || null,
+    }
+  } catch (error) {
+    // Если произошла ошибка (например, нет переменных окружения), возвращаем null
+    console.error('Ошибка в getAuth:', error)
     return null
-  }
-
-  // Получаем профиль пользователя
-  // Используем maybeSingle() вместо single() для безопасной обработки
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id, full_name, is_approved, primary_currency')
-    .eq('id', session.user.id)
-    .maybeSingle()
-
-  return {
-    user: session.user,
-    session,
-    profile: profile || null,
   }
 }
 

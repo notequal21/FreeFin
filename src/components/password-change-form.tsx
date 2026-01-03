@@ -19,14 +19,20 @@ import { toast } from 'sonner';
 import { useState } from 'react';
 
 // Схема валидации для смены пароля
-const passwordChangeSchema = z.object({
-  current_password: z.string().min(1, 'Введите текущий пароль'),
-  new_password: z.string().min(6, 'Пароль должен содержать минимум 6 символов'),
-  confirm_password: z.string().min(6, 'Пароль должен содержать минимум 6 символов'),
-}).refine((data) => data.new_password === data.confirm_password, {
-  message: 'Пароли не совпадают',
-  path: ['confirm_password'],
-});
+const passwordChangeSchema = z
+  .object({
+    current_password: z.string().min(1, 'Введите текущий пароль'),
+    new_password: z
+      .string()
+      .min(6, 'Пароль должен содержать минимум 6 символов'),
+    confirm_password: z
+      .string()
+      .min(6, 'Пароль должен содержать минимум 6 символов'),
+  })
+  .refine((data) => data.new_password === data.confirm_password, {
+    message: 'Пароли не совпадают',
+    path: ['confirm_password'],
+  });
 
 type PasswordChangeFormData = z.infer<typeof passwordChangeSchema>;
 
@@ -54,8 +60,11 @@ export function PasswordChangeForm() {
     try {
       // Сначала проверяем текущий пароль, пытаясь войти с ним
       // Получаем email текущего пользователя
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
       if (userError || !user?.email) {
         toast.error('Ошибка', {
           description: 'Не удалось получить данные пользователя',
@@ -108,17 +117,17 @@ export function PasswordChangeForm() {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-6'>
         <FormField
           control={form.control}
-          name="current_password"
+          name='current_password'
           render={({ field }) => (
             <FormItem>
               <FormLabel>Текущий пароль</FormLabel>
               <FormControl>
                 <Input
-                  type="password"
-                  placeholder="Введите текущий пароль"
+                  type='password'
+                  placeholder='Введите текущий пароль'
                   {...field}
                 />
               </FormControl>
@@ -132,14 +141,14 @@ export function PasswordChangeForm() {
 
         <FormField
           control={form.control}
-          name="new_password"
+          name='new_password'
           render={({ field }) => (
             <FormItem>
               <FormLabel>Новый пароль</FormLabel>
               <FormControl>
                 <Input
-                  type="password"
-                  placeholder="Введите новый пароль"
+                  type='password'
+                  placeholder='Введите новый пароль'
                   {...field}
                 />
               </FormControl>
@@ -153,14 +162,14 @@ export function PasswordChangeForm() {
 
         <FormField
           control={form.control}
-          name="confirm_password"
+          name='confirm_password'
           render={({ field }) => (
             <FormItem>
               <FormLabel>Подтвердите новый пароль</FormLabel>
               <FormControl>
                 <Input
-                  type="password"
-                  placeholder="Повторите новый пароль"
+                  type='password'
+                  placeholder='Повторите новый пароль'
                   {...field}
                 />
               </FormControl>
@@ -169,11 +178,10 @@ export function PasswordChangeForm() {
           )}
         />
 
-        <Button type="submit" disabled={isSubmitting}>
+        <Button type='submit' disabled={isSubmitting}>
           {isSubmitting ? 'Сохранение...' : 'Изменить пароль'}
         </Button>
       </form>
     </Form>
   );
 }
-

@@ -49,9 +49,14 @@ export async function createProject(formData: FormData) {
     const rawData = {
       title: formData.get('title') as string,
       budget: budgetValue && budgetValue.trim() !== '' ? budgetValue : null,
-      currency: currencyValue && currencyValue !== 'none' ? currencyValue : null,
-      exchange_rate: exchangeRateValue && exchangeRateValue.trim() !== '' ? exchangeRateValue : null,
-      counterparty_id: counterpartyId && counterpartyId !== 'none' ? counterpartyId : null,
+      currency:
+        currencyValue && currencyValue !== 'none' ? currencyValue : null,
+      exchange_rate:
+        exchangeRateValue && exchangeRateValue.trim() !== ''
+          ? exchangeRateValue
+          : null,
+      counterparty_id:
+        counterpartyId && counterpartyId !== 'none' ? counterpartyId : null,
     };
 
     const validatedData = createProjectSchema.parse(rawData);
@@ -64,7 +69,7 @@ export async function createProject(formData: FormData) {
         user_id: user.id,
         title: validatedData.title,
         budget: validatedData.budget || null,
-        currency: validatedData.budget ? (validatedData.currency || 'RUB') : null,
+        currency: validatedData.budget ? validatedData.currency || 'RUB' : null,
         exchange_rate: validatedData.exchange_rate || null,
         counterparty_id: validatedData.counterparty_id || null,
       })
@@ -112,9 +117,14 @@ export async function updateProject(formData: FormData) {
       id: formData.get('id') as string,
       title: formData.get('title') as string,
       budget: budgetValue && budgetValue.trim() !== '' ? budgetValue : null,
-      currency: currencyValue && currencyValue !== 'none' ? currencyValue : null,
-      exchange_rate: exchangeRateValue && exchangeRateValue.trim() !== '' ? exchangeRateValue : null,
-      counterparty_id: counterpartyId && counterpartyId !== 'none' ? counterpartyId : null,
+      currency:
+        currencyValue && currencyValue !== 'none' ? currencyValue : null,
+      exchange_rate:
+        exchangeRateValue && exchangeRateValue.trim() !== ''
+          ? exchangeRateValue
+          : null,
+      counterparty_id:
+        counterpartyId && counterpartyId !== 'none' ? counterpartyId : null,
       is_completed: isCompletedValue === 'true' || isCompletedValue === 'on',
     };
 
@@ -127,7 +137,7 @@ export async function updateProject(formData: FormData) {
       .update({
         title: validatedData.title,
         budget: validatedData.budget || null,
-        currency: validatedData.budget ? (validatedData.currency || 'RUB') : null,
+        currency: validatedData.budget ? validatedData.currency || 'RUB' : null,
         exchange_rate: validatedData.exchange_rate || null,
         counterparty_id: validatedData.counterparty_id || null,
         is_completed: validatedData.is_completed ?? false,
@@ -323,7 +333,10 @@ export async function getCounterparties() {
 /**
  * Переключает статус завершения проекта
  */
-export async function toggleProjectCompletion(projectId: string, isCompleted: boolean) {
+export async function toggleProjectCompletion(
+  projectId: string,
+  isCompleted: boolean
+) {
   try {
     const supabase = await createClient();
 
@@ -464,4 +477,3 @@ export async function getProjectTransactions(projectId: string) {
     return { error: 'Ошибка при загрузке транзакций проекта', data: null };
   }
 }
-

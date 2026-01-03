@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import { usePathname } from "next/navigation";
-import { Sidebar } from "@/components/sidebar";
-import { cn } from "@/lib/utils";
+import { usePathname } from 'next/navigation';
+import { Sidebar } from '@/components/sidebar';
+import { cn } from '@/lib/utils';
 
 /**
  * Проверяет, является ли путь страницей авторизации
  */
 function isAuthPage(pathname: string): boolean {
-  return pathname.startsWith("/auth");
+  return pathname.startsWith('/auth');
 }
 
 /**
@@ -20,12 +20,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const isAuth = isAuthPage(pathname);
 
   return (
-    <div className="flex min-h-screen">
+    <div className='flex min-h-screen'>
       <Sidebar />
       <div
         className={cn(
-          "flex flex-1 flex-col transition-all",
-          !isAuth && "ml-64"
+          'flex flex-1 flex-col transition-all',
+          !isAuth && 'ml-64'
         )}
       >
         {children}
@@ -33,4 +33,3 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-

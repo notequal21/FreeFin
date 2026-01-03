@@ -2,7 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -101,31 +107,32 @@ export function ApprovalPending() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+    <div className='flex min-h-screen items-center justify-center bg-background p-4'>
+      <Card className='w-full max-w-md'>
+        <CardHeader className='text-center'>
+          <div className='mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted'>
             <HugeiconsIcon
               icon={Alert01Icon}
               size={24}
-              className="text-muted-foreground"
+              className='text-muted-foreground'
             />
           </div>
           <CardTitle>Ожидание подтверждения</CardTitle>
           <CardDescription>
-            Ваш аккаунт находится на модерации. Вы получите уведомление, как только администратор одобрит ваш аккаунт.
+            Ваш аккаунт находится на модерации. Вы получите уведомление, как
+            только администратор одобрит ваш аккаунт.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-center text-sm text-muted-foreground">
+        <CardContent className='space-y-4'>
+          <p className='text-center text-sm text-muted-foreground'>
             Пожалуйста, подождите...
           </p>
-          <div className="flex flex-col gap-2">
+          <div className='flex flex-col gap-2'>
             <Button
               onClick={handleCheckAccess}
               disabled={isChecking || isLoggingOut}
-              variant="default"
-              className="w-full"
+              variant='default'
+              className='w-full'
             >
               <HugeiconsIcon
                 icon={Refresh01Icon}
@@ -137,8 +144,8 @@ export function ApprovalPending() {
             <Button
               onClick={handleLogout}
               disabled={isChecking || isLoggingOut}
-              variant="outline"
-              className="w-full"
+              variant='outline'
+              className='w-full'
             >
               <HugeiconsIcon icon={Logout01Icon} size={16} />
               {isLoggingOut ? 'Выход...' : 'Выйти из аккаунта'}
@@ -149,4 +156,3 @@ export function ApprovalPending() {
     </div>
   );
 }
-

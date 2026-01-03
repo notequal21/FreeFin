@@ -58,7 +58,9 @@ export default function ConfirmResetPasswordPage() {
       try {
         // Supabase автоматически обрабатывает токен из hash при загрузке страницы
         // Проверяем, есть ли токен в URL
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const hashParams = new URLSearchParams(
+          window.location.hash.substring(1)
+        );
         const accessToken = hashParams.get('access_token');
         const type = hashParams.get('type');
 
@@ -77,8 +79,10 @@ export default function ConfirmResetPasswordPage() {
           setIsLoading(false);
         } else {
           // Проверяем сессию пользователя (Supabase мог автоматически установить сессию)
-          const { data: { session } } = await supabase.auth.getSession();
-          
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+
           if (session) {
             // Сессия есть, значит токен был обработан, можно устанавливать пароль
             setIsValidToken(true);
@@ -136,7 +140,9 @@ export default function ConfirmResetPasswordPage() {
         </div>
         <Card className='w-full max-w-md'>
           <CardContent className='pt-6'>
-            <p className='text-center text-muted-foreground'>Проверка токена...</p>
+            <p className='text-center text-muted-foreground'>
+              Проверка токена...
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -236,4 +242,3 @@ export default function ConfirmResetPasswordPage() {
     </div>
   );
 }
-
