@@ -237,6 +237,92 @@ export function CounterpartyDetails({
     { receivables: 0, payables: 0 }
   );
 
+  // Добавляем к дебиторке разницу между бюджетом проекта и доходами по нему
+  // Если у проекта указан бюджет и доходы меньше бюджета, разница добавляется в дебиторку
+  const budgetReceivables = projects.reduce((acc, project) => {
+    // Проверяем, что у проекта указан бюджет и валюта
+    if (project.budget === null || !project.currency) {
+      return acc;
+    }
+
+    // Считаем сумму доходов по проекту (только подтвержденные транзакции)
+    const projectIncome = transactions.reduce((sum, transaction) => {
+      // Учитываем только доходы, связанные с этим проектом, и только подтвержденные транзакции
+      if (
+        transaction.project_id !== project.id ||
+        transaction.type !== 'income' ||
+        transaction.is_scheduled
+      ) {
+        return sum;
+      }
+
+      // Получаем валюту счета транзакции
+      const accountCurrency = transaction.accounts?.currency || 'RUB';
+      
+      // Определяем валюту транзакции
+      const isTransactionInDifferentCurrency = 
+        transaction.exchange_rate !== 1 && 
+        transaction.exchange_rate !== null;
+      
+      const transactionCurrency = isTransactionInDifferentCurrency
+        ? (accountCurrency === 'RUB' ? 'USD' : 'RUB')
+        : accountCurrency;
+
+      // Конвертируем сумму дохода в валюту проекта
+      let amountInProjectCurrency: number;
+
+      if (project.currency === transactionCurrency) {
+        // Валюта проекта совпадает с валютой транзакции
+        amountInProjectCurrency = transaction.amount;
+      } else {
+        // Валюта проекта отличается от валюты транзакции
+        // Используем defaultExchangeRate для конвертации
+        if (transactionCurrency === 'USD' && project.currency === 'RUB') {
+          // Конвертируем USD -> RUB: умножаем на курс
+          amountInProjectCurrency = transaction.amount * defaultExchangeRate;
+        } else if (transactionCurrency === 'RUB' && project.currency === 'USD') {
+          // Конвертируем RUB -> USD: делим на курс
+          amountInProjectCurrency = transaction.amount / defaultExchangeRate;
+        } else {
+          amountInProjectCurrency = transaction.amount;
+        }
+      }
+
+      return sum + amountInProjectCurrency;
+    }, 0);
+
+    // Если доходы меньше бюджета, добавляем разницу к дебиторке
+    if (projectIncome < project.budget) {
+      const difference = project.budget - projectIncome;
+      
+      // Конвертируем разницу в primary_currency
+      let differenceInPrimaryCurrency: number;
+      
+      if (primaryCurrency === project.currency) {
+        // Валюта проекта совпадает с primary_currency
+        differenceInPrimaryCurrency = difference;
+      } else {
+        // Валюта проекта отличается от primary_currency
+        if (project.currency === 'USD' && primaryCurrency === 'RUB') {
+          // Конвертируем USD -> RUB: умножаем на курс
+          differenceInPrimaryCurrency = difference * defaultExchangeRate;
+        } else if (project.currency === 'RUB' && primaryCurrency === 'USD') {
+          // Конвертируем RUB -> USD: делим на курс
+          differenceInPrimaryCurrency = difference / defaultExchangeRate;
+        } else {
+          differenceInPrimaryCurrency = difference;
+        }
+      }
+
+      return acc + differenceInPrimaryCurrency;
+    }
+
+    return acc;
+  }, 0);
+
+  // Итоговая дебиторка = запланированные доходы + разница между бюджетом и доходами
+  const totalReceivables = receivables + budgetReceivables;
+
   // Загружаем данные для формы транзакции
   useEffect(() => {
     const loadFormData = async () => {
@@ -455,7 +541,7 @@ export function CounterpartyDetails({
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-semibold text-emerald-600 dark:text-emerald-400">
-                {receivables.toLocaleString('ru-RU', {
+                {totalReceivables.toLocaleString('ru-RU', {
                   style: 'currency',
                   currency: primaryCurrency,
                 })}

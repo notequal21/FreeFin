@@ -141,6 +141,50 @@ export default async function Home() {
     );
   }
 
+  // Получаем все проекты с бюджетом для расчета разницы между бюджетом и доходами
+  const { data: allProjectsWithBudget, error: allProjectsError } = await supabase
+    .from('projects')
+    .select('id, budget, currency, exchange_rate')
+    .not('budget', 'is', null)
+    .not('currency', 'is', null)
+    .eq('is_completed', false);
+
+  if (allProjectsError) {
+    console.error('Ошибка загрузки проектов с бюджетом:', allProjectsError);
+  }
+
+  // Получаем все транзакции по проектам с бюджетом для расчета разницы между бюджетом и доходами
+  // Нужны только подтвержденные доходы (is_scheduled=false, type='income')
+  const { data: projectTransactions, error: projectTransactionsError } =
+    await supabase
+      .from('transactions')
+      .select(
+        `
+      *,
+      accounts:account_id (
+        id,
+        name,
+        currency
+      ),
+      projects:project_id (
+        id,
+        budget,
+        currency,
+        exchange_rate
+      )
+    `
+      )
+      .not('project_id', 'is', null)
+      .eq('type', 'income')
+      .eq('is_scheduled', false);
+
+  if (projectTransactionsError) {
+    console.error(
+      'Ошибка загрузки транзакций по проектам:',
+      projectTransactionsError
+    );
+  }
+
   return (
     <div className='container mx-auto p-6'>
       <h1 className='mb-6 text-2xl font-semibold text-zinc-900 dark:text-zinc-50'>
@@ -154,6 +198,8 @@ export default async function Home() {
         counterpartiesCount={counterpartiesCount || 0}
         transactions={transactions || []}
         scheduledTransactions={scheduledTransactions || []}
+        projectTransactions={projectTransactions || []}
+        allProjectsWithBudget={allProjectsWithBudget || []}
         primaryCurrency={primaryCurrency}
         defaultExchangeRate={defaultExchangeRate}
       />

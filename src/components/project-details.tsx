@@ -333,6 +333,20 @@ export function ProjectDetails({
     { receivables: 0, payables: 0 }
   );
 
+  // Добавляем к дебиторке разницу между бюджетом проекта и доходами по нему
+  // Если у проекта указан бюджет и доходы меньше бюджета, разница добавляется в дебиторку
+  let budgetReceivables = 0;
+  if (project.budget !== null && project.currency) {
+    // Доходы уже посчитаны в stats.income в валюте проекта
+    // Если доходы меньше бюджета, добавляем разницу к дебиторке
+    if (stats.income < project.budget) {
+      budgetReceivables = project.budget - stats.income;
+    }
+  }
+
+  // Итоговая дебиторка = запланированные доходы + разница между бюджетом и доходами
+  const totalReceivables = receivables + budgetReceivables;
+
   // Загружаем данные для формы транзакции
   useEffect(() => {
     const loadFormData = async () => {
@@ -556,10 +570,12 @@ export function ProjectDetails({
                   Дебиторка
                 </p>
                 <p className='text-lg font-semibold text-emerald-600 dark:text-emerald-400'>
-                  {formatAmount(receivables, displayCurrency)}
+                  {formatAmount(totalReceivables, displayCurrency)}
                 </p>
                 <p className='text-xs text-zinc-500 dark:text-zinc-400 mt-0.5'>
-                  Запланированные доходы
+                  {budgetReceivables > 0
+                    ? 'Запланированные доходы + недополученный бюджет'
+                    : 'Запланированные доходы'}
                 </p>
               </div>
 

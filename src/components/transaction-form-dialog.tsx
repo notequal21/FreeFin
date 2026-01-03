@@ -69,9 +69,11 @@ const transactionSchema = z.object({
   category_id: z.string().uuid().nullable().optional(),
   project_id: z.string().uuid().nullable().optional(),
   counterparty_id: z.string().uuid().nullable().optional(),
-  amount: z.number().positive('Сумма должна быть положительной'),
+  amount: z
+    .number('Сумма должна быть числом')
+    .positive('Сумма должна быть положительной'),
   transaction_currency: z.enum(['USD', 'RUB']).optional(),
-  exchange_rate: z.number().positive(),
+  exchange_rate: z.number().positive('Курс обмена должен быть положительным'),
   type: z.enum(['income', 'expense', 'withdrawal']),
   tags: z.array(z.string()),
   description: z.string().nullable().optional(),
@@ -121,7 +123,7 @@ export function TransactionFormDialog({
       category_id: null,
       project_id: null,
       counterparty_id: null,
-      amount: 0,
+      amount: 0, // Начальное значение, будет перезаписано при вводе
       transaction_currency: undefined,
       exchange_rate: 1,
       type: defaultType || 'income',
@@ -202,7 +204,7 @@ export function TransactionFormDialog({
         category_id: null,
         project_id: defaultProjectId || null,
         counterparty_id: defaultCounterpartyId || null,
-        amount: 0,
+        amount: 0, // Начальное значение, будет перезаписано при вводе
         transaction_currency: undefined,
         exchange_rate: 1,
         type: defaultType || 'income',
@@ -326,7 +328,21 @@ export function TransactionFormDialog({
           </DialogHeader>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-4'>
+            <form
+              onSubmit={form.handleSubmit(onSubmit, (errors) => {
+                // Обработка ошибок валидации на клиенте
+                const firstErrorKey = Object.keys(errors)[0];
+                if (firstErrorKey) {
+                  const error = errors[firstErrorKey as keyof typeof errors];
+                  const errorMessage =
+                    error?.message || 'Пожалуйста, заполните все обязательные поля';
+                  toast.error('Ошибка валидации', {
+                    description: errorMessage,
+                  });
+                }
+              })}
+              className='space-y-4'
+            >
               <FormField
                 control={form.control}
                 name='type'
@@ -538,7 +554,24 @@ export function TransactionFormDialog({
                         step='0.01'
                         placeholder='0'
                         {...field}
-                        onChange={(e) => field.onChange(e.target.value)}
+                        value={field.value === 0 ? '' : field.value || ''}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          // Преобразуем строку в число
+                          if (value === '' || value === null || value === undefined) {
+                            // Если значение пустое, устанавливаем 0 (валидация сработает при отправке)
+                            field.onChange(0);
+                          } else {
+                            const numValue = Number(value);
+                            // Проверяем, что значение является валидным числом
+                            if (!isNaN(numValue) && isFinite(numValue)) {
+                              field.onChange(numValue);
+                            } else {
+                              // Если значение не является числом, устанавливаем 0
+                              field.onChange(0);
+                            }
+                          }
+                        }}
                       />
                     </FormControl>
                     <FormMessage />
@@ -601,7 +634,24 @@ export function TransactionFormDialog({
                           step='0.0001'
                           placeholder='1'
                           {...field}
-                          onChange={(e) => field.onChange(e.target.value)}
+                          value={field.value === 1 ? '' : field.value || ''}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            // Преобразуем строку в число
+                            if (value === '' || value === null || value === undefined) {
+                              // Если значение пустое, устанавливаем 1 (значение по умолчанию)
+                              field.onChange(1);
+                            } else {
+                              const numValue = Number(value);
+                              // Проверяем, что значение является валидным числом
+                              if (!isNaN(numValue) && isFinite(numValue)) {
+                                field.onChange(numValue);
+                              } else {
+                                // Если значение не является числом, устанавливаем 1
+                                field.onChange(1);
+                              }
+                            }
+                          }}
                         />
                       </FormControl>
                       <FormMessage />

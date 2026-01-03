@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { TransactionFormDialog } from '@/components/transaction-form-dialog';
+import { Transaction as TransactionListType } from '@/components/transactions-list';
 import {
   getTransactionFormData,
   confirmScheduledTransaction,
@@ -80,11 +81,27 @@ interface Transaction {
   projects?: {
     id: string;
     title: string;
-  } | null;
+    budget?: number | null;
+    currency?: 'USD' | 'RUB' | null;
+    exchange_rate?: number | null;
+  } | null | Array<{
+    id: string;
+    title: string;
+    budget?: number | null;
+    currency?: 'USD' | 'RUB' | null;
+    exchange_rate?: number | null;
+  }>;
   counterparties?: {
     id: string;
     name: string;
   } | null;
+}
+
+interface ProjectWithBudget {
+  id: string;
+  budget: number;
+  currency: 'USD' | 'RUB';
+  exchange_rate: number | null;
 }
 
 interface DashboardProps {
@@ -95,6 +112,8 @@ interface DashboardProps {
   counterpartiesCount: number;
   transactions: Transaction[];
   scheduledTransactions?: Transaction[];
+  projectTransactions?: Transaction[];
+  allProjectsWithBudget?: ProjectWithBudget[];
   primaryCurrency: 'USD' | 'RUB';
   defaultExchangeRate: number;
 }
@@ -110,6 +129,8 @@ export function Dashboard({
   counterpartiesCount,
   transactions,
   scheduledTransactions = [],
+  projectTransactions = [],
+  allProjectsWithBudget = [],
   primaryCurrency,
   defaultExchangeRate,
 }: DashboardProps) {
@@ -235,6 +256,103 @@ export function Dashboard({
     },
     { receivables: 0, payables: 0 }
   );
+
+  // Добавляем к дебиторке разницу между бюджетом проекта и доходами по нему
+  // Если у проекта указан бюджет и доходы меньше бюджета, разница добавляется в дебиторку
+  // Группируем транзакции по проектам
+  const projectIncomeMap = new Map<string, number>();
+  
+  // Считаем доходы по каждому проекту в валюте проекта
+  projectTransactions.forEach((transaction) => {
+    // Нормализуем связанные данные (Supabase может возвращать их как массив или объект)
+    const project = Array.isArray(transaction.projects) 
+      ? transaction.projects[0] 
+      : transaction.projects;
+    
+    const account = Array.isArray(transaction.accounts)
+      ? transaction.accounts[0]
+      : transaction.accounts;
+    
+    if (!project || !project.budget || !project.currency) {
+      return;
+    }
+
+    const projectId = project.id;
+    if (!projectIncomeMap.has(projectId)) {
+      projectIncomeMap.set(projectId, 0);
+    }
+
+    // Получаем валюту счета транзакции
+    const accountCurrency = account?.currency || 'RUB';
+    
+    // Определяем валюту транзакции
+    const isTransactionInDifferentCurrency =
+      transaction.exchange_rate !== 1 && transaction.exchange_rate !== null;
+    
+    const transactionCurrency = isTransactionInDifferentCurrency
+      ? accountCurrency === 'RUB' ? 'USD' : 'RUB'
+      : accountCurrency;
+
+    // Получаем курс проекта (используем курс проекта, если указан, иначе курс по умолчанию)
+    const projectExchangeRate = project.exchange_rate || defaultExchangeRate;
+
+    // Конвертируем сумму дохода в валюту проекта
+    let amountInProjectCurrency: number;
+
+    if (project.currency === transactionCurrency) {
+      // Валюта проекта совпадает с валютой транзакции
+      amountInProjectCurrency = transaction.amount;
+    } else {
+      // Валюта проекта отличается от валюты транзакции
+      if (transactionCurrency === 'USD' && project.currency === 'RUB') {
+        // Конвертируем USD -> RUB: умножаем на курс
+        amountInProjectCurrency = transaction.amount * projectExchangeRate;
+      } else if (transactionCurrency === 'RUB' && project.currency === 'USD') {
+        // Конвертируем RUB -> USD: делим на курс
+        amountInProjectCurrency = transaction.amount / projectExchangeRate;
+      } else {
+        amountInProjectCurrency = transaction.amount;
+      }
+    }
+
+    projectIncomeMap.set(projectId, projectIncomeMap.get(projectId)! + amountInProjectCurrency);
+  });
+
+  // Считаем разницу между бюджетом и доходами для каждого проекта
+  // Используем allProjectsWithBudget, чтобы учесть все проекты с бюджетом, а не только последние 10
+  let budgetReceivables = 0;
+  allProjectsWithBudget.forEach((project) => {
+    const projectIncome = projectIncomeMap.get(project.id) || 0;
+
+    // Если доходы меньше бюджета, добавляем разницу к дебиторке
+    if (projectIncome < project.budget) {
+      const difference = project.budget - projectIncome;
+      
+      // Конвертируем разницу в primary_currency
+      let differenceInPrimaryCurrency: number;
+      
+      if (primaryCurrency === project.currency) {
+        // Валюта проекта совпадает с primary_currency
+        differenceInPrimaryCurrency = difference;
+      } else {
+        // Валюта проекта отличается от primary_currency
+        if (project.currency === 'USD' && primaryCurrency === 'RUB') {
+          // Конвертируем USD -> RUB: умножаем на курс
+          differenceInPrimaryCurrency = difference * defaultExchangeRate;
+        } else if (project.currency === 'RUB' && primaryCurrency === 'USD') {
+          // Конвертируем RUB -> USD: делим на курс
+          differenceInPrimaryCurrency = difference / defaultExchangeRate;
+        } else {
+          differenceInPrimaryCurrency = difference;
+        }
+      }
+
+      budgetReceivables += differenceInPrimaryCurrency;
+    }
+  });
+
+  // Итоговая дебиторка = запланированные доходы + разница между бюджетом и доходами
+  const totalReceivables = receivables + budgetReceivables;
 
   // Форматирование суммы
   const formatAmount = (amount: number, currency: string) => {
@@ -379,7 +497,7 @@ export function Dashboard({
               Дебиторка
             </p>
             <div className='text-xl font-bold text-emerald-600 dark:text-emerald-400'>
-              {formatAmount(receivables, primaryCurrency)}
+              {formatAmount(totalReceivables, primaryCurrency)}
             </div>
             <p className='text-xs text-zinc-500 dark:text-zinc-400 mt-0.5'>
               Запланированные доходы
@@ -551,6 +669,11 @@ export function Dashboard({
                   transaction.type === 'withdrawal';
                 const isScheduled = transaction.is_scheduled;
 
+                // Нормализуем связанные данные (Supabase может возвращать их как массив или объект)
+                const project = Array.isArray(transaction.projects) 
+                  ? transaction.projects[0] 
+                  : transaction.projects;
+
                 // Определяем, была ли транзакция в валюте, отличной от валюты счета
                 const isDifferentCurrency =
                   transaction.exchange_rate !== 1 &&
@@ -595,11 +718,11 @@ export function Dashboard({
                             {transaction.accounts.name}
                           </span>
                         )}
-                        {transaction.projects?.title && (
+                        {project?.title && (
                           <>
                             <span className='text-zinc-400'>•</span>
                             <span className='truncate'>
-                              {transaction.projects.title}
+                              {project.title}
                             </span>
                           </>
                         )}
@@ -711,20 +834,33 @@ export function Dashboard({
       </Card>
 
       {/* Модалка редактирования транзакции */}
-      {transactionFormData && editingTransaction && (
-        <TransactionFormDialog
-          open={!!editingTransaction}
-          onOpenChange={(open) => {
-            if (!open) {
-              setEditingTransaction(null);
-              // Обновляем страницу после редактирования транзакции
-              router.refresh();
-            }
-          }}
-          transaction={editingTransaction}
-          formData={transactionFormData}
-        />
-      )}
+      {transactionFormData && editingTransaction && (() => {
+        // Нормализуем транзакцию для передачи в TransactionFormDialog
+        // (преобразуем массив projects в объект или null, если это массив)
+        const normalizedProject = Array.isArray(editingTransaction.projects)
+          ? editingTransaction.projects[0] || null
+          : editingTransaction.projects;
+        
+        const normalizedTransaction: TransactionListType = {
+          ...editingTransaction,
+          projects: normalizedProject,
+        };
+        
+        return (
+          <TransactionFormDialog
+            open={!!editingTransaction}
+            onOpenChange={(open) => {
+              if (!open) {
+                setEditingTransaction(null);
+                // Обновляем страницу после редактирования транзакции
+                router.refresh();
+              }
+            }}
+            transaction={normalizedTransaction}
+            formData={transactionFormData}
+          />
+        );
+      })()}
     </div>
   );
 }
