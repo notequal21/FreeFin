@@ -12,7 +12,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { TransactionFormDialog } from '@/components/transaction-form-dialog';
-import { Transaction as TransactionListType } from '@/components/transactions-list';
+import { Transaction as TransactionListType, Transaction } from '@/components/transactions-list';
 import {
   getTransactionFormData,
   confirmScheduledTransaction,
@@ -54,30 +54,9 @@ interface Project {
   counterparties: Counterparty | null;
 }
 
-interface Transaction {
-  id: string;
-  account_id: string;
-  category_id: string | null;
-  project_id: string | null;
-  counterparty_id: string | null;
-  amount: number;
-  exchange_rate: number;
-  converted_amount: number;
-  type: 'income' | 'expense' | 'withdrawal';
-  tags: string[] | null;
-  description: string | null;
-  is_scheduled: boolean;
-  scheduled_date: string | null;
-  created_at: string;
-  accounts?: {
-    id: string;
-    name: string;
-    currency: string;
-  };
-  categories?: {
-    id: string;
-    name: string;
-  } | null;
+// Используем импортированный тип Transaction из transactions-list
+// Расширяем его для поддержки массива projects (для совместимости с данными из БД)
+type TransactionWithArrayProjects = Omit<Transaction, 'projects'> & {
   projects?: {
     id: string;
     title: string;
@@ -91,11 +70,7 @@ interface Transaction {
     currency?: 'USD' | 'RUB' | null;
     exchange_rate?: number | null;
   }>;
-  counterparties?: {
-    id: string;
-    name: string;
-  } | null;
-}
+};
 
 interface ProjectWithBudget {
   id: string;
@@ -110,9 +85,9 @@ interface DashboardProps {
   projectsCount: number;
   counterparties: Counterparty[];
   counterpartiesCount: number;
-  transactions: Transaction[];
-  scheduledTransactions?: Transaction[];
-  projectTransactions?: Transaction[];
+  transactions: TransactionWithArrayProjects[];
+  scheduledTransactions?: TransactionWithArrayProjects[];
+  projectTransactions?: TransactionWithArrayProjects[];
   allProjectsWithBudget?: ProjectWithBudget[];
   primaryCurrency: 'USD' | 'RUB';
   defaultExchangeRate: number;
@@ -136,7 +111,7 @@ export function Dashboard({
 }: DashboardProps) {
   const router = useRouter();
   const [editingTransaction, setEditingTransaction] =
-    useState<Transaction | null>(null);
+    useState<TransactionWithArrayProjects | null>(null);
   const [transactionFormData, setTransactionFormData] = useState<{
     accounts: Array<{ id: string; name: string; currency: string }>;
     categories: Array<{ id: string; name: string; type: string }>;
@@ -159,7 +134,7 @@ export function Dashboard({
   }, []);
 
   // Обработчик редактирования транзакции
-  const handleEditTransaction = (transaction: Transaction) => {
+  const handleEditTransaction = (transaction: TransactionWithArrayProjects) => {
     setEditingTransaction(transaction);
   };
 
@@ -843,6 +818,7 @@ export function Dashboard({
         
         const normalizedTransaction: TransactionListType = {
           ...editingTransaction,
+          transaction_date: editingTransaction.transaction_date ?? null,
           projects: normalizedProject,
         };
         

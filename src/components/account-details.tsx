@@ -36,6 +36,7 @@ import {
   CheckmarkCircle01Icon,
 } from '@hugeicons/core-free-icons';
 import { cn } from '@/lib/utils';
+import { Transaction } from '@/components/transactions-list';
 
 interface Account {
   id: string;
@@ -43,40 +44,6 @@ interface Account {
   balance: number;
   currency: 'USD' | 'RUB';
   created_at: string;
-}
-
-interface Transaction {
-  id: string;
-  account_id: string;
-  category_id: string | null;
-  project_id: string | null;
-  counterparty_id: string | null;
-  amount: number;
-  exchange_rate: number;
-  converted_amount: number;
-  type: 'income' | 'expense' | 'withdrawal';
-  tags: string[] | null;
-  description: string | null;
-  is_scheduled: boolean;
-  scheduled_date: string | null;
-  created_at: string;
-  accounts?: {
-    id: string;
-    name: string;
-    currency: string;
-  };
-  categories?: {
-    id: string;
-    name: string;
-  } | null;
-  projects?: {
-    id: string;
-    title: string;
-  } | null;
-  counterparties?: {
-    id: string;
-    name: string;
-  } | null;
 }
 
 interface AccountDetailsProps {
