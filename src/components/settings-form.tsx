@@ -39,7 +39,10 @@ import { Tag01Icon } from '@hugeicons/core-free-icons';
 
 // Схема валидации для формы настроек
 const settingsSchema = z.object({
-  full_name: z.string().min(1, 'Имя не может быть пустым').max(255, 'Имя слишком длинное'),
+  full_name: z
+    .string()
+    .min(1, 'Имя не может быть пустым')
+    .max(255, 'Имя слишком длинное'),
   primary_currency: z.enum(['USD', 'RUB'], {
     message: 'Выберите валюту: USD или RUB',
   }),
@@ -57,7 +60,11 @@ interface SettingsFormProps {
 /**
  * Форма настроек пользователя
  */
-export function SettingsForm({ fullName, defaultExchangeRate, primaryCurrency }: SettingsFormProps) {
+export function SettingsForm({
+  fullName,
+  defaultExchangeRate,
+  primaryCurrency,
+}: SettingsFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<SettingsFormData>({
@@ -74,7 +81,10 @@ export function SettingsForm({ fullName, defaultExchangeRate, primaryCurrency }:
     const formData = new FormData();
     formData.append('full_name', data.full_name);
     formData.append('primary_currency', data.primary_currency);
-    formData.append('default_exchange_rate', data.default_exchange_rate.toString());
+    formData.append(
+      'default_exchange_rate',
+      data.default_exchange_rate.toString()
+    );
 
     const result = await updateProfile(formData);
 
@@ -90,7 +100,26 @@ export function SettingsForm({ fullName, defaultExchangeRate, primaryCurrency }:
   };
 
   return (
-    <div className="space-y-6">
+    <div className='space-y-6'>
+      {/* Карточка для управления категориями */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Категории</CardTitle>
+          <CardDescription>
+            Управление категориями для доходов и расходов. Создавайте,
+            редактируйте и удаляйте свои категории.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link href='/settings/categories'>
+            <Button variant='outline' className='w-full'>
+              <HugeiconsIcon icon={Tag01Icon} size={20} className='mr-2' />
+              Управление категориями
+            </Button>
+          </Link>
+        </CardContent>
+      </Card>
+
       {/* Карточка с настройками профиля */}
       <Card>
         <CardHeader>
@@ -101,18 +130,18 @@ export function SettingsForm({ fullName, defaultExchangeRate, primaryCurrency }:
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-6'>
               {/* Поле для редактирования имени */}
               <FormField
                 control={form.control}
-                name="full_name"
+                name='full_name'
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Имя</FormLabel>
                     <FormControl>
                       <Input
-                        type="text"
-                        placeholder="Введите ваше имя"
+                        type='text'
+                        placeholder='Введите ваше имя'
                         {...field}
                       />
                     </FormControl>
@@ -127,7 +156,7 @@ export function SettingsForm({ fullName, defaultExchangeRate, primaryCurrency }:
               {/* Поле для выбора валюты по умолчанию */}
               <FormField
                 control={form.control}
-                name="primary_currency"
+                name='primary_currency'
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Валюта по умолчанию</FormLabel>
@@ -138,12 +167,12 @@ export function SettingsForm({ fullName, defaultExchangeRate, primaryCurrency }:
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Выберите валюту" />
+                          <SelectValue placeholder='Выберите валюту' />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="RUB">Рубли (RUB)</SelectItem>
-                        <SelectItem value="USD">Доллары (USD)</SelectItem>
+                        <SelectItem value='RUB'>Рубли (RUB)</SelectItem>
+                        <SelectItem value='USD'>Доллары (USD)</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormDescription>
@@ -157,34 +186,38 @@ export function SettingsForm({ fullName, defaultExchangeRate, primaryCurrency }:
               {/* Поле для курса обмена */}
               <FormField
                 control={form.control}
-                name="default_exchange_rate"
+                name='default_exchange_rate'
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Курс обмена RUB/USD</FormLabel>
                     <FormControl>
                       <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="100.00"
+                        type='number'
+                        step='0.01'
+                        placeholder='100.00'
                         {...field}
                         onChange={(e) => {
                           const value = e.target.value;
-                          field.onChange(value === '' ? 0 : parseFloat(value) || 0);
+                          field.onChange(
+                            value === '' ? 0 : parseFloat(value) || 0
+                          );
                         }}
                       />
                     </FormControl>
                     <FormDescription>
-                      Курс обмена RUB/USD (сколько рублей за доллар), используемый для конвертации сумм
-                      при создании транзакций для проектов в валюте, отличной от валюты счета.
-                      Курс сохраняется в момент создания транзакции, поэтому изменение этого значения
-                      не повлияет на уже созданные транзакции.
+                      Курс обмена RUB/USD (сколько рублей за доллар),
+                      используемый для конвертации сумм при создании транзакций
+                      для проектов в валюте, отличной от валюты счета. Курс
+                      сохраняется в момент создания транзакции, поэтому
+                      изменение этого значения не повлияет на уже созданные
+                      транзакции.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type='submit' disabled={isSubmitting}>
                 {isSubmitting ? 'Сохранение...' : 'Сохранить'}
               </Button>
             </form>
@@ -197,7 +230,8 @@ export function SettingsForm({ fullName, defaultExchangeRate, primaryCurrency }:
         <CardHeader>
           <CardTitle>Смена пароля</CardTitle>
           <CardDescription>
-            Измените пароль для вашего аккаунта. Требуется подтверждение текущего пароля.
+            Измените пароль для вашего аккаунта. Требуется подтверждение
+            текущего пароля.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -210,32 +244,14 @@ export function SettingsForm({ fullName, defaultExchangeRate, primaryCurrency }:
         <CardHeader>
           <CardTitle>Смена email</CardTitle>
           <CardDescription>
-            Измените email адрес вашего аккаунта. Требуется подтверждение пароля и подтверждение через оба email адреса.
+            Измените email адрес вашего аккаунта. Требуется подтверждение пароля
+            и подтверждение через оба email адреса.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <EmailChangeForm />
         </CardContent>
       </Card>
-
-      {/* Карточка для управления категориями */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Категории</CardTitle>
-          <CardDescription>
-            Управление категориями для доходов и расходов. Создавайте, редактируйте и удаляйте свои категории.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link href="/settings/categories">
-            <Button variant="outline" className="w-full">
-              <HugeiconsIcon icon={Tag01Icon} size={20} className="mr-2" />
-              Управление категориями
-            </Button>
-          </Link>
-        </CardContent>
-      </Card>
     </div>
   );
 }
-

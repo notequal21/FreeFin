@@ -117,6 +117,7 @@ export function TransactionFormDialog({
 }: TransactionFormDialogProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // Состояние загрузки для создания/обновления транзакции
   const [tagInput, setTagInput] = useState('');
 
   const form = useForm<TransactionFormData>({
@@ -223,6 +224,11 @@ export function TransactionFormDialog({
       });
       setTagInput('');
     }
+
+    // Сбрасываем состояние загрузки при закрытии диалога
+    if (!open) {
+      setIsSubmitting(false);
+    }
   }, [
     transaction,
     defaultType,
@@ -242,67 +248,79 @@ export function TransactionFormDialog({
     ) || [];
 
   const onSubmit = async (data: TransactionFormData) => {
-    const formDataObj = new FormData();
-    formDataObj.append('account_id', data.account_id);
-    if (data.category_id) {
-      formDataObj.append('category_id', data.category_id);
-    }
-    if (data.project_id) {
-      formDataObj.append('project_id', data.project_id);
-    }
-    if (data.counterparty_id) {
-      formDataObj.append('counterparty_id', data.counterparty_id);
-    }
-    formDataObj.append('amount', data.amount.toString());
-    // Используем курс обмена только если валюта транзакции отличается от валюты счета
-    const finalExchangeRate = showExchangeRate ? data.exchange_rate : 1;
-    formDataObj.append('exchange_rate', finalExchangeRate.toString());
-    formDataObj.append('type', data.type);
-    formDataObj.append('tags', JSON.stringify(data.tags || []));
-    if (data.description) {
-      formDataObj.append('description', data.description);
-    }
-    formDataObj.append('is_scheduled', data.is_scheduled ? 'true' : 'false');
-    if (data.is_scheduled && data.scheduled_date) {
-      // Форматируем дату в формат YYYY-MM-DD для отправки на сервер
-      const dateStr = format(data.scheduled_date, 'yyyy-MM-dd');
-      formDataObj.append('scheduled_date', dateStr);
-    }
-    if (data.transaction_date) {
-      // Форматируем дату транзакции в формат YYYY-MM-DD для отправки на сервер
-      const dateStr = format(data.transaction_date, 'yyyy-MM-dd');
-      formDataObj.append('transaction_date', dateStr);
+    // Предотвращаем повторную отправку формы
+    if (isSubmitting) {
+      return;
     }
 
-    if (transaction) {
-      // Редактирование существующей транзакции
-      formDataObj.append('id', transaction.id);
-      const result = await updateTransaction(formDataObj);
+    setIsSubmitting(true);
 
-      if (result.error) {
-        toast.error('Ошибка', {
-          description: result.error,
-        });
-      } else {
-        toast.success('Транзакция обновлена');
-        onOpenChange(false);
-        form.reset();
-        setTagInput('');
+    try {
+      const formDataObj = new FormData();
+      formDataObj.append('account_id', data.account_id);
+      if (data.category_id) {
+        formDataObj.append('category_id', data.category_id);
       }
-    } else {
-      // Создание новой транзакции
-      const result = await createTransaction(formDataObj);
-
-      if (result.error) {
-        toast.error('Ошибка', {
-          description: result.error,
-        });
-      } else {
-        toast.success('Транзакция создана');
-        onOpenChange(false);
-        form.reset();
-        setTagInput('');
+      if (data.project_id) {
+        formDataObj.append('project_id', data.project_id);
       }
+      if (data.counterparty_id) {
+        formDataObj.append('counterparty_id', data.counterparty_id);
+      }
+      formDataObj.append('amount', data.amount.toString());
+      // Используем курс обмена только если валюта транзакции отличается от валюты счета
+      const finalExchangeRate = showExchangeRate ? data.exchange_rate : 1;
+      formDataObj.append('exchange_rate', finalExchangeRate.toString());
+      formDataObj.append('type', data.type);
+      formDataObj.append('tags', JSON.stringify(data.tags || []));
+      if (data.description) {
+        formDataObj.append('description', data.description);
+      }
+      formDataObj.append('is_scheduled', data.is_scheduled ? 'true' : 'false');
+      if (data.is_scheduled && data.scheduled_date) {
+        // Форматируем дату в формат YYYY-MM-DD для отправки на сервер
+        const dateStr = format(data.scheduled_date, 'yyyy-MM-dd');
+        formDataObj.append('scheduled_date', dateStr);
+      }
+      if (data.transaction_date) {
+        // Форматируем дату транзакции в формат YYYY-MM-DD для отправки на сервер
+        const dateStr = format(data.transaction_date, 'yyyy-MM-dd');
+        formDataObj.append('transaction_date', dateStr);
+      }
+
+      if (transaction) {
+        // Редактирование существующей транзакции
+        formDataObj.append('id', transaction.id);
+        const result = await updateTransaction(formDataObj);
+
+        if (result.error) {
+          toast.error('Ошибка', {
+            description: result.error,
+          });
+        } else {
+          toast.success('Транзакция обновлена');
+          onOpenChange(false);
+          form.reset();
+          setTagInput('');
+        }
+      } else {
+        // Создание новой транзакции
+        const result = await createTransaction(formDataObj);
+
+        if (result.error) {
+          toast.error('Ошибка', {
+            description: result.error,
+          });
+        } else {
+          toast.success('Транзакция создана');
+          onOpenChange(false);
+          form.reset();
+          setTagInput('');
+        }
+      }
+    } finally {
+      // Всегда сбрасываем состояние загрузки после завершения операции
+      setIsSubmitting(false);
     }
   };
 
@@ -901,6 +919,7 @@ export function TransactionFormDialog({
                     type='button'
                     variant='destructive'
                     onClick={() => setIsDeleteDialogOpen(true)}
+                    disabled={isSubmitting} // Отключаем кнопку удаления во время загрузки
                   >
                     Удалить
                   </Button>
@@ -909,11 +928,18 @@ export function TransactionFormDialog({
                   type='button'
                   variant='outline'
                   onClick={() => onOpenChange(false)}
+                  disabled={isSubmitting} // Отключаем кнопку отмены во время загрузки
                 >
                   Отмена
                 </Button>
-                <Button type='submit'>
-                  {transaction ? 'Сохранить' : 'Создать'}
+                <Button type='submit' disabled={isSubmitting}>
+                  {isSubmitting
+                    ? transaction
+                      ? 'Сохранение...'
+                      : 'Создание...'
+                    : transaction
+                    ? 'Сохранить'
+                    : 'Создать'}
                 </Button>
               </DialogFooter>
             </form>

@@ -3,7 +3,10 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { createCounterparty, updateCounterparty } from '@/app/counterparties/actions';
+import {
+  createCounterparty,
+  updateCounterparty,
+} from '@/app/counterparties/actions';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -30,7 +33,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 // Схема валидации для формы контрагента
 const counterpartySchema = z.object({
@@ -60,6 +63,8 @@ export function CounterpartyFormDialog({
   onOpenChange,
   counterparty,
 }: CounterpartyFormDialogProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false); // Состояние загрузки для создания/обновления контрагента
+
   const form = useForm<CounterpartyFormData>({
     resolver: zodResolver(counterpartySchema),
     defaultValues: {
@@ -81,40 +86,57 @@ export function CounterpartyFormDialog({
         type: 'client',
       });
     }
-  }, [counterparty, form]);
+
+    // Сбрасываем состояние загрузки при закрытии диалога
+    if (!open) {
+      setIsSubmitting(false);
+    }
+  }, [counterparty, form, open]);
 
   const onSubmit = async (data: CounterpartyFormData) => {
-    const formData = new FormData();
-    formData.append('name', data.name);
-    formData.append('type', data.type);
+    // Предотвращаем повторную отправку формы
+    if (isSubmitting) {
+      return;
+    }
 
-    if (counterparty) {
-      // Редактирование существующего контрагента
-      formData.append('id', counterparty.id);
-      const result = await updateCounterparty(formData);
+    setIsSubmitting(true);
 
-      if (result.error) {
-        toast.error('Ошибка', {
-          description: result.error,
-        });
+    try {
+      const formData = new FormData();
+      formData.append('name', data.name);
+      formData.append('type', data.type);
+
+      if (counterparty) {
+        // Редактирование существующего контрагента
+        formData.append('id', counterparty.id);
+        const result = await updateCounterparty(formData);
+
+        if (result.error) {
+          toast.error('Ошибка', {
+            description: result.error,
+          });
+        } else {
+          toast.success('Контрагент обновлен');
+          onOpenChange(false);
+          form.reset();
+        }
       } else {
-        toast.success('Контрагент обновлен');
-        onOpenChange(false);
-        form.reset();
-      }
-    } else {
-      // Создание нового контрагента
-      const result = await createCounterparty(formData);
+        // Создание нового контрагента
+        const result = await createCounterparty(formData);
 
-      if (result.error) {
-        toast.error('Ошибка', {
-          description: result.error,
-        });
-      } else {
-        toast.success('Контрагент создан');
-        onOpenChange(false);
-        form.reset();
+        if (result.error) {
+          toast.error('Ошибка', {
+            description: result.error,
+          });
+        } else {
+          toast.success('Контрагент создан');
+          onOpenChange(false);
+          form.reset();
+        }
       }
+    } finally {
+      // Всегда сбрасываем состояние загрузки после завершения операции
+      setIsSubmitting(false);
     }
   };
 
@@ -133,15 +155,15 @@ export function CounterpartyFormDialog({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-4'>
             <FormField
               control={form.control}
-              name="name"
+              name='name'
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Название контрагента</FormLabel>
                   <FormControl>
-                    <Input placeholder="Например: ООО Компания" {...field} />
+                    <Input placeholder='Например: ООО Компания' {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -150,7 +172,7 @@ export function CounterpartyFormDialog({
 
             <FormField
               control={form.control}
-              name="type"
+              name='type'
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Тип контрагента</FormLabel>
@@ -161,12 +183,12 @@ export function CounterpartyFormDialog({
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Выберите тип" />
+                        <SelectValue placeholder='Выберите тип' />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="client">Клиент</SelectItem>
-                      <SelectItem value="contractor">Подрядчик</SelectItem>
+                      <SelectItem value='client'>Клиент</SelectItem>
+                      <SelectItem value='contractor'>Подрядчик</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -176,14 +198,21 @@ export function CounterpartyFormDialog({
 
             <DialogFooter>
               <Button
-                type="button"
-                variant="outline"
+                type='button'
+                variant='outline'
                 onClick={() => onOpenChange(false)}
+                disabled={isSubmitting} // Отключаем кнопку отмены во время загрузки
               >
                 Отмена
               </Button>
-              <Button type="submit">
-                {counterparty ? 'Сохранить' : 'Создать'}
+              <Button type='submit' disabled={isSubmitting}>
+                {isSubmitting
+                  ? counterparty
+                    ? 'Сохранение...'
+                    : 'Создание...'
+                  : counterparty
+                  ? 'Сохранить'
+                  : 'Создать'}
               </Button>
             </DialogFooter>
           </form>
@@ -192,4 +221,3 @@ export function CounterpartyFormDialog({
     </Dialog>
   );
 }
-
