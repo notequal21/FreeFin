@@ -37,42 +37,13 @@ import {
 } from '@hugeicons/core-free-icons';
 import { Users, Briefcase } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Transaction } from '@/components/transactions-list';
 
 interface Counterparty {
   id: string;
   name: string;
   type: 'client' | 'contractor';
   created_at: string;
-}
-
-interface Transaction {
-  id: string;
-  account_id: string;
-  category_id: string | null;
-  project_id: string | null;
-  counterparty_id: string | null;
-  amount: number;
-  exchange_rate: number;
-  converted_amount: number;
-  type: 'income' | 'expense' | 'withdrawal';
-  tags: string[] | null;
-  description: string | null;
-  is_scheduled: boolean;
-  scheduled_date: string | null;
-  created_at: string;
-  accounts?: {
-    id: string;
-    name: string;
-    currency: string;
-  } | null;
-  categories?: {
-    id: string;
-    name: string;
-  } | null;
-  projects?: {
-    id: string;
-    title: string;
-  } | null;
 }
 
 interface Project {

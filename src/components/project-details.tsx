@@ -38,6 +38,7 @@ import {
 } from '@hugeicons/core-free-icons';
 import { cn } from '@/lib/utils';
 import { useTransition } from 'react';
+import { Transaction as BaseTransaction } from '@/components/transactions-list';
 
 interface Counterparty {
   id: string;
@@ -57,35 +58,9 @@ interface Project {
   counterparties: Counterparty | null;
 }
 
-interface Transaction {
-  id: string;
-  account_id: string;
-  category_id: string | null;
-  project_id: string | null;
-  counterparty_id: string | null;
-  amount: number;
-  exchange_rate: number;
-  converted_amount: number;
+// Расширяем базовый тип Transaction для поддержки project_exchange_rate
+interface Transaction extends BaseTransaction {
   project_exchange_rate: number | null;
-  type: 'income' | 'expense' | 'withdrawal';
-  tags: string[] | null;
-  description: string | null;
-  is_scheduled: boolean;
-  scheduled_date: string | null;
-  created_at: string;
-  accounts?: {
-    id: string;
-    name: string;
-    currency: string;
-  };
-  categories?: {
-    id: string;
-    name: string;
-  } | null;
-  counterparties?: {
-    id: string;
-    name: string;
-  } | null;
 }
 
 interface ProjectDetailsProps {
