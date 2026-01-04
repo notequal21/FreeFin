@@ -24,6 +24,7 @@ const createTransactionSchema = z.object({
     return val === true;
   }, z.boolean().default(false)),
   scheduled_date: z.string().nullable().optional(),
+  transaction_date: z.string().nullable().optional(), // Дата транзакции (по умолчанию текущая дата)
 });
 
 // Схема валидации для обновления транзакции
@@ -63,6 +64,7 @@ export async function createTransaction(formData: FormData) {
       description: formData.get('description') as string | null,
       is_scheduled: formData.get('is_scheduled') as string | undefined,
       scheduled_date: formData.get('scheduled_date') as string | null,
+      transaction_date: formData.get('transaction_date') as string | null,
     };
 
     const validatedData = createTransactionSchema.parse(rawData);
@@ -157,6 +159,7 @@ export async function createTransaction(formData: FormData) {
         description: validatedData.description || null,
         is_scheduled: validatedData.is_scheduled || false,
         scheduled_date: validatedData.scheduled_date || null,
+        transaction_date: validatedData.transaction_date || new Date().toISOString().split('T')[0], // По умолчанию текущая дата
       })
       .select()
       .single();
@@ -214,14 +217,15 @@ export async function updateTransaction(formData: FormData) {
       description: formData.get('description') as string | null,
       is_scheduled: formData.get('is_scheduled') as string | undefined,
       scheduled_date: formData.get('scheduled_date') as string | null,
+      transaction_date: formData.get('transaction_date') as string | null,
     };
 
     const validatedData = updateTransactionSchema.parse(rawData);
 
-    // Получаем старый account_id перед обновлением (для инвалидации кэша старого счета)
+    // Получаем старую транзакцию перед обновлением (для инвалидации кэша старого счета и проверки is_scheduled)
     const { data: oldTransaction } = await supabase
       .from('transactions')
-      .select('account_id')
+      .select('account_id, is_scheduled, transaction_date')
       .eq('id', validatedData.id)
       .eq('user_id', user.id)
       .single();
@@ -295,6 +299,30 @@ export async function updateTransaction(formData: FormData) {
       }
     }
 
+    // Определяем transaction_date:
+    // 1. Если пользователь указал дату, используем её
+    // 2. Если is_scheduled меняется с true на false (подтверждение запланированной транзакции)
+    //    и transaction_date не установлена, устанавливаем текущую дату
+    // 3. Иначе оставляем существующее значение или устанавливаем текущую дату
+    let transactionDate: string | null = validatedData.transaction_date || null;
+    
+    if (
+      oldTransaction &&
+      oldTransaction.is_scheduled === true &&
+      validatedData.is_scheduled === false &&
+      !transactionDate &&
+      !oldTransaction.transaction_date
+    ) {
+      // Подтверждение запланированной транзакции: устанавливаем текущую дату
+      transactionDate = new Date().toISOString().split('T')[0];
+    } else if (!transactionDate && oldTransaction?.transaction_date) {
+      // Сохраняем существующую дату, если новая не указана
+      transactionDate = oldTransaction.transaction_date;
+    } else if (!transactionDate) {
+      // Если дата не указана и не была установлена ранее, используем текущую дату
+      transactionDate = new Date().toISOString().split('T')[0];
+    }
+
     // Обновляем транзакцию
     // Примечание:
     // - exchange_rate используется для конвертации в primary_currency
@@ -314,6 +342,7 @@ export async function updateTransaction(formData: FormData) {
         description: validatedData.description || null,
         is_scheduled: validatedData.is_scheduled || false,
         scheduled_date: validatedData.scheduled_date || null,
+        transaction_date: transactionDate,
       })
       .eq('id', validatedData.id)
       .eq('user_id', user.id)
@@ -488,7 +517,7 @@ export async function confirmScheduledTransaction(transactionId: string) {
     // Проверяем, что транзакция существует и является запланированной
     const { data: transaction, error: fetchError } = await supabase
       .from('transactions')
-      .select('id, is_scheduled, account_id')
+      .select('id, is_scheduled, account_id, transaction_date')
       .eq('id', validatedId)
       .eq('user_id', user.id)
       .single();
@@ -501,10 +530,16 @@ export async function confirmScheduledTransaction(transactionId: string) {
       return { error: 'Транзакция не является запланированной' };
     }
 
-    // Обновляем транзакцию: убираем флаг is_scheduled
+    // Определяем transaction_date: если не установлена, устанавливаем текущую дату
+    const transactionDate = transaction.transaction_date || new Date().toISOString().split('T')[0];
+
+    // Обновляем транзакцию: убираем флаг is_scheduled и устанавливаем transaction_date
     const { data, error } = await supabase
       .from('transactions')
-      .update({ is_scheduled: false })
+      .update({ 
+        is_scheduled: false,
+        transaction_date: transactionDate, // Автоматически устанавливаем текущую дату при подтверждении
+      })
       .eq('id', validatedId)
       .eq('user_id', user.id)
       .select()

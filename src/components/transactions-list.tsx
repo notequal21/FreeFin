@@ -30,6 +30,7 @@ export interface Transaction {
   description: string | null;
   is_scheduled: boolean;
   scheduled_date: string | null;
+  transaction_date: string | null;
   created_at: string;
   accounts?: {
     id: string;
@@ -74,12 +75,14 @@ export function TransactionsList({
   );
   const [isPending, startTransition] = useTransition();
 
-  // Группировка транзакций по датам
+  // Группировка транзакций по датам (используем transaction_date, если доступна, иначе created_at)
   const groupedTransactions = useMemo(() => {
     const groups: Record<string, Transaction[]> = {};
 
     transactions.forEach((transaction) => {
-      const date = new Date(transaction.created_at);
+      // Используем transaction_date для группировки, если она доступна, иначе created_at
+      const dateString = transaction.transaction_date || transaction.created_at;
+      const date = new Date(dateString);
       const dateKey = date.toLocaleDateString('ru-RU', {
         year: 'numeric',
         month: 'long',
@@ -94,7 +97,10 @@ export function TransactionsList({
 
     // Сортируем даты в обратном порядке
     return Object.entries(groups).sort((a, b) => {
-      return new Date(b[0]).getTime() - new Date(a[0]).getTime();
+      // Используем первую транзакцию из группы для определения даты сортировки
+      const dateA = a[1][0]?.transaction_date || a[1][0]?.created_at;
+      const dateB = b[1][0]?.transaction_date || b[1][0]?.created_at;
+      return new Date(dateB || 0).getTime() - new Date(dateA || 0).getTime();
     });
   }, [transactions]);
 

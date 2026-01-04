@@ -142,12 +142,13 @@ export default async function Home() {
   }
 
   // Получаем все проекты с бюджетом для расчета разницы между бюджетом и доходами
-  const { data: allProjectsWithBudget, error: allProjectsError } = await supabase
-    .from('projects')
-    .select('id, budget, currency, exchange_rate')
-    .not('budget', 'is', null)
-    .not('currency', 'is', null)
-    .eq('is_completed', false);
+  const { data: allProjectsWithBudget, error: allProjectsError } =
+    await supabase
+      .from('projects')
+      .select('id, budget, currency, exchange_rate')
+      .not('budget', 'is', null)
+      .not('currency', 'is', null)
+      .eq('is_completed', false);
 
   if (allProjectsError) {
     console.error('Ошибка загрузки проектов с бюджетом:', allProjectsError);

@@ -79,6 +79,7 @@ const transactionSchema = z.object({
   description: z.string().nullable().optional(),
   is_scheduled: z.boolean(),
   scheduled_date: z.date().nullable().optional(),
+  transaction_date: z.date().nullable().optional(), // Дата транзакции (по умолчанию текущая дата)
 });
 
 type TransactionFormData = z.infer<typeof transactionSchema>;
@@ -131,6 +132,7 @@ export function TransactionFormDialog({
       description: null,
       is_scheduled: false,
       scheduled_date: null,
+      transaction_date: new Date(), // По умолчанию текущая дата
     },
   });
 
@@ -195,6 +197,9 @@ export function TransactionFormDialog({
         scheduled_date: transaction.scheduled_date
           ? new Date(transaction.scheduled_date)
           : null,
+        transaction_date: transaction.transaction_date
+          ? new Date(transaction.transaction_date)
+          : new Date(),
       });
       setTagInput('');
     } else if (open) {
@@ -212,6 +217,7 @@ export function TransactionFormDialog({
         description: null,
         is_scheduled: false,
         scheduled_date: null,
+        transaction_date: new Date(), // По умолчанию текущая дата
       });
       setTagInput('');
     }
@@ -258,6 +264,11 @@ export function TransactionFormDialog({
       // Форматируем дату в формат YYYY-MM-DD для отправки на сервер
       const dateStr = format(data.scheduled_date, 'yyyy-MM-dd');
       formDataObj.append('scheduled_date', dateStr);
+    }
+    if (data.transaction_date) {
+      // Форматируем дату транзакции в формат YYYY-MM-DD для отправки на сервер
+      const dateStr = format(data.transaction_date, 'yyyy-MM-dd');
+      formDataObj.append('transaction_date', dateStr);
     }
 
     if (transaction) {
@@ -673,6 +684,46 @@ export function TransactionFormDialog({
                         value={field.value || ''}
                       />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='transaction_date'
+                render={({ field }) => (
+                  <FormItem className='flex flex-col'>
+                    <FormLabel>Дата транзакции</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant={'outline'}
+                            className={cn(
+                              'w-full pl-3 text-left font-normal',
+                              !field.value && 'text-muted-foreground'
+                            )}
+                          >
+                            {field.value ? (
+                              format(field.value, 'PPP', { locale: ru })
+                            ) : (
+                              <span>Выберите дату</span>
+                            )}
+                            <CalendarIcon className='ml-auto h-4 w-4 opacity-50' />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className='w-auto p-0' align='start'>
+                        <Calendar
+                          mode='single'
+                          selected={field.value || undefined}
+                          onSelect={field.onChange}
+                          locale={ruDayPicker}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                     <FormMessage />
                   </FormItem>
                 )}
