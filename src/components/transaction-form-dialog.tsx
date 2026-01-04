@@ -89,6 +89,7 @@ interface TransactionFormDialogProps {
   onOpenChange: (open: boolean) => void;
   transaction?: Transaction | null;
   defaultType?: 'income' | 'expense' | 'withdrawal';
+  defaultAccountId?: string | null;
   defaultProjectId?: string | null;
   defaultCounterpartyId?: string | null;
   formData?: {
@@ -109,6 +110,7 @@ export function TransactionFormDialog({
   onOpenChange,
   transaction,
   defaultType,
+  defaultAccountId,
   defaultProjectId,
   defaultCounterpartyId,
   formData,
@@ -205,7 +207,7 @@ export function TransactionFormDialog({
     } else if (open) {
       // Обновляем форму только при открытии модалки, если нет транзакции
       form.reset({
-        account_id: '',
+        account_id: defaultAccountId || '',
         category_id: null,
         project_id: defaultProjectId || null,
         counterparty_id: defaultCounterpartyId || null,
@@ -224,6 +226,7 @@ export function TransactionFormDialog({
   }, [
     transaction,
     defaultType,
+    defaultAccountId,
     defaultProjectId,
     defaultCounterpartyId,
     open,
@@ -346,7 +349,8 @@ export function TransactionFormDialog({
                 if (firstErrorKey) {
                   const error = errors[firstErrorKey as keyof typeof errors];
                   const errorMessage =
-                    error?.message || 'Пожалуйста, заполните все обязательные поля';
+                    error?.message ||
+                    'Пожалуйста, заполните все обязательные поля';
                   toast.error('Ошибка валидации', {
                     description: errorMessage,
                   });
@@ -569,7 +573,11 @@ export function TransactionFormDialog({
                         onChange={(e) => {
                           const value = e.target.value;
                           // Преобразуем строку в число
-                          if (value === '' || value === null || value === undefined) {
+                          if (
+                            value === '' ||
+                            value === null ||
+                            value === undefined
+                          ) {
                             // Если значение пустое, устанавливаем 0 (валидация сработает при отправке)
                             field.onChange(0);
                           } else {
@@ -649,7 +657,11 @@ export function TransactionFormDialog({
                           onChange={(e) => {
                             const value = e.target.value;
                             // Преобразуем строку в число
-                            if (value === '' || value === null || value === undefined) {
+                            if (
+                              value === '' ||
+                              value === null ||
+                              value === undefined
+                            ) {
                               // Если значение пустое, устанавливаем 1 (значение по умолчанию)
                               field.onChange(1);
                             } else {

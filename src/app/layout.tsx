@@ -1,30 +1,31 @@
-import type { Metadata } from "next";
-import { Outfit } from "next/font/google";
-import { headers } from "next/headers";
-import "./globals.css";
-import { ThemeProvider } from "@/components/theme-provider";
-import { Toaster } from "sonner";
-import { Header } from "@/components/header";
-import { AppLayout } from "@/components/app-layout";
-import { ApprovalPending } from "@/components/approval-pending";
-import { getAuth } from "@/lib/auth";
+import type { Metadata } from 'next';
+import { Outfit } from 'next/font/google';
+import { headers } from 'next/headers';
+import './globals.css';
+import { ThemeProvider } from '@/components/theme-provider';
+import { Toaster } from 'sonner';
+import { Header } from '@/components/header';
+import { AppLayout } from '@/components/app-layout';
+import { ApprovalPending } from '@/components/approval-pending';
+import { getAuth } from '@/lib/auth';
+import { TransactionDialogProvider } from '@/contexts/transaction-dialog-context';
 
 // Настройка шрифта Outfit согласно пресету shadcn
 const outfit = Outfit({
-  variable: "--font-outfit",
-  subsets: ["latin"],
+  variable: '--font-outfit',
+  subsets: ['latin'],
 });
 
 export const metadata: Metadata = {
-  title: "FreeFin - Учет финансов для фрилансеров",
-  description: "Приложение для учета доходов и расходов",
+  title: 'FreeFin - Учет финансов для фрилансеров',
+  description: 'Приложение для учета доходов и расходов',
 };
 
 /**
  * Проверяет, является ли путь страницей авторизации
  */
 function isAuthPage(pathname: string): boolean {
-  return pathname.startsWith("/auth");
+  return pathname.startsWith('/auth');
 }
 
 export default async function RootLayout({
@@ -34,8 +35,8 @@ export default async function RootLayout({
 }>) {
   // Получаем путь из заголовков запроса (устанавливается middleware)
   const headersList = await headers();
-  const pathname = headersList.get("x-pathname") || "";
-  
+  const pathname = headersList.get('x-pathname') || '';
+
   // Проверяем, является ли это страницей авторизации
   const isAuth = isAuthPage(pathname);
 
@@ -57,27 +58,27 @@ export default async function RootLayout({
   }
 
   return (
-    <html lang="ru" suppressHydrationWarning>
-      <body
-        className={`${outfit.variable} font-sans antialiased`}
-      >
+    <html lang='ru' suppressHydrationWarning>
+      <body className={`${outfit.variable} font-sans antialiased`}>
         <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
+          attribute='class'
+          defaultTheme='system'
           enableSystem
           disableTransitionOnChange
         >
-          {shouldShowApprovalPending ? (
-            // Если пользователь не одобрен, показываем только окно ожидания
-            <ApprovalPending />
-          ) : (
-            // Иначе показываем обычный layout с Header и Sidebar
-            <AppLayout>
-              <Header />
-              <main className="flex-1">{children}</main>
-            </AppLayout>
-          )}
-          <Toaster position="top-center" richColors />
+          <TransactionDialogProvider>
+            {shouldShowApprovalPending ? (
+              // Если пользователь не одобрен, показываем только окно ожидания
+              <ApprovalPending />
+            ) : (
+              // Иначе показываем обычный layout с Header и Sidebar
+              <AppLayout>
+                <Header />
+                <main className='flex-1'>{children}</main>
+              </AppLayout>
+            )}
+            <Toaster position='top-center' richColors />
+          </TransactionDialogProvider>
         </ThemeProvider>
       </body>
     </html>

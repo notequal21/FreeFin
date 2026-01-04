@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { TrendingUp, TrendingDown, ArrowLeftRight } from 'lucide-react';
 import { TransactionsList, Transaction } from '@/components/transactions-list';
 import { TransactionFormDialog } from '@/components/transaction-form-dialog';
+import { useTransactionDialog } from '@/contexts/transaction-dialog-context';
 
 interface TransactionsTabsProps {
   transactions: Transaction[];
@@ -27,6 +28,7 @@ export function TransactionsTabs({
 }: TransactionsTabsProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { openDialog: openTransactionDialog } = useTransactionDialog();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [defaultType, setDefaultType] = useState<
     'income' | 'expense' | 'withdrawal' | undefined
@@ -40,10 +42,11 @@ export function TransactionsTabs({
     const type = searchParams.get('type') || 'all';
     setActiveTab(type);
 
-    // Проверяем, нужно ли открыть модалку
+    // Проверяем, нужно ли открыть модалку через URL параметр (для обратной совместимости)
     const shouldOpenDialog = searchParams.get('openDialog') === 'true';
     if (shouldOpenDialog) {
-      setIsCreateDialogOpen(true);
+      // Используем глобальный контекст для открытия модалки
+      openTransactionDialog();
       // Убираем параметр из URL после открытия модалки
       const params = new URLSearchParams(searchParams.toString());
       params.delete('openDialog');
@@ -52,7 +55,7 @@ export function TransactionsTabs({
       }`;
       router.replace(newUrl);
     }
-  }, [searchParams, router]);
+  }, [searchParams, router, openTransactionDialog]);
 
   // Обработчик изменения таба
   const handleTabChange = (value: string) => {
@@ -71,8 +74,10 @@ export function TransactionsTabs({
 
   // Обработчик открытия модалки с предустановленным типом
   const handleOpenDialog = (type?: 'income' | 'expense' | 'withdrawal') => {
-    setDefaultType(type);
-    setIsCreateDialogOpen(true);
+    // Используем глобальный контекст для открытия модалки
+    openTransactionDialog({
+      defaultType: type,
+    });
   };
 
   // Фильтрация транзакций по типу
@@ -158,19 +163,6 @@ export function TransactionsTabs({
           </TabsContent>
         </Tabs>
       </div>
-
-      {/* Модалка создания транзакции */}
-      <TransactionFormDialog
-        open={isCreateDialogOpen}
-        onOpenChange={(open) => {
-          setIsCreateDialogOpen(open);
-          if (!open) {
-            setDefaultType(undefined);
-          }
-        }}
-        defaultType={defaultType}
-        formData={formData}
-      />
     </>
   );
 }

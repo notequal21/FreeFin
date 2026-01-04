@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { useTransactionDialog } from '@/contexts/transaction-dialog-context';
 import {
   Card,
   CardContent,
@@ -89,6 +89,7 @@ interface AccountDetailsProps {
  */
 export function AccountDetails({ account, transactions }: AccountDetailsProps) {
   const router = useRouter();
+  const { openDialog: openTransactionDialog } = useTransactionDialog();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -118,6 +119,17 @@ export function AccountDetails({ account, transactions }: AccountDetailsProps) {
   // Обработчик редактирования транзакции
   const handleEditTransaction = (transaction: Transaction) => {
     setEditingTransaction(transaction);
+  };
+
+  // Обработчик открытия модалки создания транзакции
+  const handleCreateTransaction = (
+    type: 'income' | 'expense' | 'withdrawal'
+  ) => {
+    // Используем глобальный контекст для открытия модалки
+    openTransactionDialog({
+      defaultType: type,
+      defaultAccountId: account.id,
+    });
   };
 
   // Обработчик подтверждения запланированной транзакции
@@ -252,15 +264,21 @@ export function AccountDetails({ account, transactions }: AccountDetailsProps) {
 
         {/* Кнопки создания транзакций */}
         <div className='mb-6 flex flex-wrap gap-2'>
-          <Link href={`/transactions/income?account_id=${account.id}`}>
-            <Button>Добавить доход</Button>
-          </Link>
-          <Link href={`/transactions/expense?account_id=${account.id}`}>
-            <Button variant='outline'>Добавить расход</Button>
-          </Link>
-          <Link href={`/transactions/transfer?account_id=${account.id}`}>
-            <Button variant='outline'>Создать перевод</Button>
-          </Link>
+          <Button onClick={() => handleCreateTransaction('income')}>
+            Добавить доход
+          </Button>
+          <Button
+            variant='outline'
+            onClick={() => handleCreateTransaction('expense')}
+          >
+            Добавить расход
+          </Button>
+          <Button
+            variant='outline'
+            onClick={() => handleCreateTransaction('withdrawal')}
+          >
+            Создать перевод
+          </Button>
         </div>
 
         {/* Дебиторка и кредиторка */}

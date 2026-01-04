@@ -159,7 +159,9 @@ export async function createTransaction(formData: FormData) {
         description: validatedData.description || null,
         is_scheduled: validatedData.is_scheduled || false,
         scheduled_date: validatedData.scheduled_date || null,
-        transaction_date: validatedData.transaction_date || new Date().toISOString().split('T')[0], // По умолчанию текущая дата
+        transaction_date:
+          validatedData.transaction_date ||
+          new Date().toISOString().split('T')[0], // По умолчанию текущая дата
       })
       .select()
       .single();
@@ -305,7 +307,7 @@ export async function updateTransaction(formData: FormData) {
     //    и transaction_date не установлена, устанавливаем текущую дату
     // 3. Иначе оставляем существующее значение или устанавливаем текущую дату
     let transactionDate: string | null = validatedData.transaction_date || null;
-    
+
     if (
       oldTransaction &&
       oldTransaction.is_scheduled === true &&
@@ -531,12 +533,13 @@ export async function confirmScheduledTransaction(transactionId: string) {
     }
 
     // Определяем transaction_date: если не установлена, устанавливаем текущую дату
-    const transactionDate = transaction.transaction_date || new Date().toISOString().split('T')[0];
+    const transactionDate =
+      transaction.transaction_date || new Date().toISOString().split('T')[0];
 
     // Обновляем транзакцию: убираем флаг is_scheduled и устанавливаем transaction_date
     const { data, error } = await supabase
       .from('transactions')
-      .update({ 
+      .update({
         is_scheduled: false,
         transaction_date: transactionDate, // Автоматически устанавливаем текущую дату при подтверждении
       })
