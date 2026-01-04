@@ -3,7 +3,11 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { createProject, updateProject, getCounterparties } from '@/app/projects/actions';
+import {
+  createProject,
+  updateProject,
+  getCounterparties,
+} from '@/app/projects/actions';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -33,30 +37,35 @@ import { toast } from 'sonner';
 import { useEffect, useState } from 'react';
 
 // Схема валидации для формы проекта
-const projectSchema = z.object({
-  title: z.string().min(1, 'Название проекта обязательно'),
-  budget: z.number().positive().nullable(),
-  currency: z.enum(['USD', 'RUB']).nullable(),
-  exchange_rate: z.number().positive().nullable().optional(),
-  counterparty_id: z.string().uuid().nullable().optional(),
-  is_completed: z.boolean().optional(),
-}).refine((data) => {
-  const hasBudget = data.budget !== null && data.budget !== undefined;
-  const hasCurrency = data.currency !== null && data.currency !== undefined;
-  
-  // Если бюджет указан, валюта должна быть указана
-  if (hasBudget && !hasCurrency) {
-    return false;
-  }
-  // Если валюта указана, бюджет должен быть указан
-  if (hasCurrency && !hasBudget) {
-    return false;
-  }
-  return true;
-}, {
-  message: 'Если указан бюджет, должна быть указана валюта, и наоборот',
-  path: ['currency'],
-});
+const projectSchema = z
+  .object({
+    title: z.string().min(1, 'Название проекта обязательно'),
+    budget: z.number().positive().nullable(),
+    currency: z.enum(['USD', 'RUB']).nullable(),
+    exchange_rate: z.number().positive().nullable().optional(),
+    counterparty_id: z.string().uuid().nullable().optional(),
+    is_completed: z.boolean().optional(),
+  })
+  .refine(
+    (data) => {
+      const hasBudget = data.budget !== null && data.budget !== undefined;
+      const hasCurrency = data.currency !== null && data.currency !== undefined;
+
+      // Если бюджет указан, валюта должна быть указана
+      if (hasBudget && !hasCurrency) {
+        return false;
+      }
+      // Если валюта указана, бюджет должен быть указан
+      if (hasCurrency && !hasBudget) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: 'Если указан бюджет, должна быть указана валюта, и наоборот',
+      path: ['currency'],
+    }
+  );
 
 type ProjectFormData = z.infer<typeof projectSchema>;
 
@@ -89,7 +98,7 @@ export function ProjectFormDialog({
   project,
 }: ProjectFormDialogProps) {
   const [counterparties, setCounterparties] = useState<Counterparty[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // Состояние загрузки для создания/обновления проекта
 
   const form = useForm<ProjectFormData>({
     resolver: zodResolver(projectSchema),
@@ -137,63 +146,78 @@ export function ProjectFormDialog({
         is_completed: false,
       });
     }
-  }, [project, form]);
+
+    // Сбрасываем состояние загрузки при закрытии диалога
+    if (!open) {
+      setIsSubmitting(false);
+    }
+  }, [project, form, open]);
 
   const onSubmit = async (data: ProjectFormData) => {
-    setIsLoading(true);
-    const formData = new FormData();
-    formData.append('title', data.title);
-    // Отправляем бюджет только если он указан
-    if (data.budget) {
-      formData.append('budget', data.budget.toString());
-      formData.append('currency', data.currency || 'RUB');
-    } else {
-      formData.append('budget', '');
-      formData.append('currency', 'none');
-    }
-    // Отправляем курс обмена, если он указан
-    if (data.exchange_rate) {
-      formData.append('exchange_rate', data.exchange_rate.toString());
-    } else {
-      formData.append('exchange_rate', '');
-    }
-    // Всегда отправляем counterparty_id, даже если это null (будет обработано в actions)
-    if (data.counterparty_id) {
-      formData.append('counterparty_id', data.counterparty_id);
-    } else {
-      // Отправляем 'none' для явного указания отсутствия контрагента
-      formData.append('counterparty_id', 'none');
+    // Предотвращаем повторную отправку формы
+    if (isSubmitting) {
+      return;
     }
 
-    if (project) {
-      // Редактирование существующего проекта
-      formData.append('id', project.id);
-      const result = await updateProject(formData);
+    setIsSubmitting(true);
 
-      if (result.error) {
-        toast.error('Ошибка', {
-          description: result.error,
-        });
+    try {
+      const formData = new FormData();
+      formData.append('title', data.title);
+      // Отправляем бюджет только если он указан
+      if (data.budget) {
+        formData.append('budget', data.budget.toString());
+        formData.append('currency', data.currency || 'RUB');
       } else {
-        toast.success('Проект обновлен');
-        onOpenChange(false);
-        form.reset();
+        formData.append('budget', '');
+        formData.append('currency', 'none');
       }
-    } else {
-      // Создание нового проекта
-      const result = await createProject(formData);
-
-      if (result.error) {
-        toast.error('Ошибка', {
-          description: result.error,
-        });
+      // Отправляем курс обмена, если он указан
+      if (data.exchange_rate) {
+        formData.append('exchange_rate', data.exchange_rate.toString());
       } else {
-        toast.success('Проект создан');
-        onOpenChange(false);
-        form.reset();
+        formData.append('exchange_rate', '');
       }
+      // Всегда отправляем counterparty_id, даже если это null (будет обработано в actions)
+      if (data.counterparty_id) {
+        formData.append('counterparty_id', data.counterparty_id);
+      } else {
+        // Отправляем 'none' для явного указания отсутствия контрагента
+        formData.append('counterparty_id', 'none');
+      }
+
+      if (project) {
+        // Редактирование существующего проекта
+        formData.append('id', project.id);
+        const result = await updateProject(formData);
+
+        if (result.error) {
+          toast.error('Ошибка', {
+            description: result.error,
+          });
+        } else {
+          toast.success('Проект обновлен');
+          onOpenChange(false);
+          form.reset();
+        }
+      } else {
+        // Создание нового проекта
+        const result = await createProject(formData);
+
+        if (result.error) {
+          toast.error('Ошибка', {
+            description: result.error,
+          });
+        } else {
+          toast.success('Проект создан');
+          onOpenChange(false);
+          form.reset();
+        }
+      }
+    } finally {
+      // Всегда сбрасываем состояние загрузки после завершения операции
+      setIsSubmitting(false);
     }
-    setIsLoading(false);
   };
 
   return (
@@ -211,37 +235,43 @@ export function ProjectFormDialog({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-4'>
             <FormField
               control={form.control}
-              name="title"
+              name='title'
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Название проекта</FormLabel>
                   <FormControl>
-                    <Input placeholder="Например: Разработка сайта" {...field} />
+                    <Input
+                      placeholder='Например: Разработка сайта'
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className='grid grid-cols-2 gap-4'>
               <FormField
                 control={form.control}
-                name="budget"
+                name='budget'
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Бюджет</FormLabel>
                     <FormControl>
                       <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="Не указан"
+                        type='number'
+                        step='0.01'
+                        placeholder='Не указан'
                         {...field}
                         value={field.value || ''}
                         onChange={(e) => {
-                          const value = e.target.value === '' ? null : parseFloat(e.target.value) || null;
+                          const value =
+                            e.target.value === ''
+                              ? null
+                              : parseFloat(e.target.value) || null;
                           field.onChange(value);
                           // Если бюджет очищен, очищаем и валюту
                           if (value === null) {
@@ -257,24 +287,28 @@ export function ProjectFormDialog({
 
               <FormField
                 control={form.control}
-                name="currency"
+                name='currency'
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Валюта</FormLabel>
                     <Select
-                      onValueChange={(value) => field.onChange(value === 'none' ? null : value)}
+                      onValueChange={(value) =>
+                        field.onChange(value === 'none' ? null : value)
+                      }
                       value={field.value || 'none'}
-                      disabled={!form.watch('budget') || form.watch('budget') === null}
+                      disabled={
+                        !form.watch('budget') || form.watch('budget') === null
+                      }
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Выберите валюту" />
+                          <SelectValue placeholder='Выберите валюту' />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="none">Не указана</SelectItem>
-                        <SelectItem value="RUB">RUB</SelectItem>
-                        <SelectItem value="USD">USD</SelectItem>
+                        <SelectItem value='none'>Не указана</SelectItem>
+                        <SelectItem value='RUB'>RUB</SelectItem>
+                        <SelectItem value='USD'>USD</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -287,26 +321,30 @@ export function ProjectFormDialog({
             {form.watch('currency') && (
               <FormField
                 control={form.control}
-                name="exchange_rate"
+                name='exchange_rate'
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Курс обмена RUB/USD</FormLabel>
                     <FormControl>
                       <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="Использовать курс по умолчанию"
+                        type='number'
+                        step='0.01'
+                        placeholder='Использовать курс по умолчанию'
                         {...field}
                         value={field.value || ''}
                         onChange={(e) => {
-                          const value = e.target.value === '' ? null : parseFloat(e.target.value) || null;
+                          const value =
+                            e.target.value === ''
+                              ? null
+                              : parseFloat(e.target.value) || null;
                           field.onChange(value);
                         }}
                       />
                     </FormControl>
-                    <p className="text-sm text-muted-foreground">
-                      Курс обмена для конвертации сумм транзакций в валюту проекта.
-                      Если не указан, используется курс по умолчанию из настроек.
+                    <p className='text-sm text-muted-foreground'>
+                      Курс обмена для конвертации сумм транзакций в валюту
+                      проекта. Если не указан, используется курс по умолчанию из
+                      настроек.
                     </p>
                     <FormMessage />
                   </FormItem>
@@ -316,23 +354,28 @@ export function ProjectFormDialog({
 
             <FormField
               control={form.control}
-              name="counterparty_id"
+              name='counterparty_id'
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Контрагент</FormLabel>
                   <Select
-                    onValueChange={(value) => field.onChange(value === 'none' ? null : value)}
+                    onValueChange={(value) =>
+                      field.onChange(value === 'none' ? null : value)
+                    }
                     value={field.value || 'none'}
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Выберите контрагента" />
+                        <SelectValue placeholder='Выберите контрагента' />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="none">Не указан</SelectItem>
+                      <SelectItem value='none'>Не указан</SelectItem>
                       {counterparties.map((counterparty) => (
-                        <SelectItem key={counterparty.id} value={counterparty.id}>
+                        <SelectItem
+                          key={counterparty.id}
+                          value={counterparty.id}
+                        >
                           {counterparty.name}
                         </SelectItem>
                       ))}
@@ -343,18 +386,23 @@ export function ProjectFormDialog({
               )}
             />
 
-
             <DialogFooter>
               <Button
-                type="button"
-                variant="outline"
+                type='button'
+                variant='outline'
                 onClick={() => onOpenChange(false)}
-                disabled={isLoading}
+                disabled={isSubmitting} // Отключаем кнопку отмены во время загрузки
               >
                 Отмена
               </Button>
-              <Button type="submit" disabled={isLoading}>
-                {project ? 'Сохранить' : 'Создать'}
+              <Button type='submit' disabled={isSubmitting}>
+                {isSubmitting
+                  ? project
+                    ? 'Сохранение...'
+                    : 'Создание...'
+                  : project
+                  ? 'Сохранить'
+                  : 'Создать'}
               </Button>
             </DialogFooter>
           </form>
@@ -363,4 +411,3 @@ export function ProjectFormDialog({
     </Dialog>
   );
 }
-

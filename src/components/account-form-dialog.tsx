@@ -30,7 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 // Схема валидации для формы счета
 // ВАЖНО: balance используется только при создании счета (начальный баланс)
@@ -64,6 +64,8 @@ export function AccountFormDialog({
   onOpenChange,
   account,
 }: AccountFormDialogProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false); // Состояние загрузки для создания/обновления счета
+
   const form = useForm<AccountFormData>({
     resolver: zodResolver(accountSchema),
     defaultValues: {
@@ -89,44 +91,61 @@ export function AccountFormDialog({
         currency: 'RUB',
       });
     }
-  }, [account, form]);
+
+    // Сбрасываем состояние загрузки при закрытии диалога
+    if (!open) {
+      setIsSubmitting(false);
+    }
+  }, [account, form, open]);
 
   const onSubmit = async (data: AccountFormData) => {
-    const formData = new FormData();
-    formData.append('name', data.name);
-    formData.append('currency', data.currency);
+    // Предотвращаем повторную отправку формы
+    if (isSubmitting) {
+      return;
+    }
 
-    if (account) {
-      // Редактирование существующего счета
-      // ВАЖНО: balance не передается - он вычисляется автоматически триггером
-      formData.append('id', account.id);
-      const result = await updateAccount(formData);
+    setIsSubmitting(true);
 
-      if (result.error) {
-        toast.error('Ошибка', {
-          description: result.error,
-        });
+    try {
+      const formData = new FormData();
+      formData.append('name', data.name);
+      formData.append('currency', data.currency);
+
+      if (account) {
+        // Редактирование существующего счета
+        // ВАЖНО: balance не передается - он вычисляется автоматически триггером
+        formData.append('id', account.id);
+        const result = await updateAccount(formData);
+
+        if (result.error) {
+          toast.error('Ошибка', {
+            description: result.error,
+          });
+        } else {
+          toast.success('Счет обновлен');
+          onOpenChange(false);
+          form.reset();
+        }
       } else {
-        toast.success('Счет обновлен');
-        onOpenChange(false);
-        form.reset();
-      }
-    } else {
-      // Создание нового счета
-      // При создании передаем начальный баланс
-      const balance = data.balance ?? 0;
-      formData.append('balance', balance.toString());
-      const result = await createAccount(formData);
+        // Создание нового счета
+        // При создании передаем начальный баланс
+        const balance = data.balance ?? 0;
+        formData.append('balance', balance.toString());
+        const result = await createAccount(formData);
 
-      if (result.error) {
-        toast.error('Ошибка', {
-          description: result.error,
-        });
-      } else {
-        toast.success('Счет создан');
-        onOpenChange(false);
-        form.reset();
+        if (result.error) {
+          toast.error('Ошибка', {
+            description: result.error,
+          });
+        } else {
+          toast.success('Счет создан');
+          onOpenChange(false);
+          form.reset();
+        }
       }
+    } finally {
+      // Всегда сбрасываем состояние загрузки после завершения операции
+      setIsSubmitting(false);
     }
   };
 
@@ -145,15 +164,15 @@ export function AccountFormDialog({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-4'>
             <FormField
               control={form.control}
-              name="name"
+              name='name'
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Название счета</FormLabel>
                   <FormControl>
-                    <Input placeholder="Например: Тинькофф" {...field} />
+                    <Input placeholder='Например: Тинькофф' {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -165,20 +184,22 @@ export function AccountFormDialog({
             {!account && (
               <FormField
                 control={form.control}
-                name="balance"
+                name='balance'
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Начальный баланс</FormLabel>
                     <FormControl>
                       <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="0"
+                        type='number'
+                        step='0.01'
+                        placeholder='0'
                         {...field}
                         value={field.value ?? ''}
                         onChange={(e) => {
                           const value = e.target.value;
-                          field.onChange(value === '' ? undefined : parseFloat(value) || 0);
+                          field.onChange(
+                            value === '' ? undefined : parseFloat(value) || 0
+                          );
                         }}
                       />
                     </FormControl>
@@ -190,7 +211,7 @@ export function AccountFormDialog({
 
             <FormField
               control={form.control}
-              name="currency"
+              name='currency'
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Валюта</FormLabel>
@@ -201,12 +222,12 @@ export function AccountFormDialog({
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Выберите валюту" />
+                        <SelectValue placeholder='Выберите валюту' />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="RUB">RUB</SelectItem>
-                      <SelectItem value="USD">USD</SelectItem>
+                      <SelectItem value='RUB'>RUB</SelectItem>
+                      <SelectItem value='USD'>USD</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -216,14 +237,21 @@ export function AccountFormDialog({
 
             <DialogFooter>
               <Button
-                type="button"
-                variant="outline"
+                type='button'
+                variant='outline'
                 onClick={() => onOpenChange(false)}
+                disabled={isSubmitting} // Отключаем кнопку отмены во время загрузки
               >
                 Отмена
               </Button>
-              <Button type="submit">
-                {account ? 'Сохранить' : 'Создать'}
+              <Button type='submit' disabled={isSubmitting}>
+                {isSubmitting
+                  ? account
+                    ? 'Сохранение...'
+                    : 'Создание...'
+                  : account
+                  ? 'Сохранить'
+                  : 'Создать'}
               </Button>
             </DialogFooter>
           </form>
@@ -232,4 +260,3 @@ export function AccountFormDialog({
     </Dialog>
   );
 }
-

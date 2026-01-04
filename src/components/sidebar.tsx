@@ -117,7 +117,7 @@ export function Sidebar() {
           {/* Версионирование */}
           <div className='text-center'>
             <p className='text-xs text-zinc-500 dark:text-zinc-400'>
-              Версия 0.2.2
+              Версия 0.2.3
             </p>
             <p className='mt-1 text-xs text-zinc-400 dark:text-zinc-500'>
               © 2026 FreeFin

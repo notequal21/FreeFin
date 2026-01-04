@@ -81,6 +81,7 @@ CREATE TABLE public.transactions (
   description text,
   is_scheduled boolean DEFAULT false NOT NULL, -- Флаг запланированной транзакции
   scheduled_date date, -- Дата платежа для запланированной транзакции (информационное поле)
+  transaction_date date DEFAULT CURRENT_DATE, -- Фактическая дата транзакции (позволяет добавлять транзакции задним числом)
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT transactions_pkey PRIMARY KEY (id),
   CONSTRAINT transactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE,

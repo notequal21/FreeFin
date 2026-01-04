@@ -3,7 +3,10 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { createCategory, updateCategory } from '@/app/settings/categories/actions';
+import {
+  createCategory,
+  updateCategory,
+} from '@/app/settings/categories/actions';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -30,7 +33,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 // Схема валидации для формы категории
 const categorySchema = z.object({
@@ -60,6 +63,8 @@ export function CategoryFormDialog({
   onOpenChange,
   category,
 }: CategoryFormDialogProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false); // Состояние загрузки для создания/обновления категории
+
   const form = useForm<CategoryFormData>({
     resolver: zodResolver(categorySchema),
     defaultValues: {
@@ -81,40 +86,57 @@ export function CategoryFormDialog({
         type: 'expense',
       });
     }
-  }, [category, form]);
+
+    // Сбрасываем состояние загрузки при закрытии диалога
+    if (!open) {
+      setIsSubmitting(false);
+    }
+  }, [category, form, open]);
 
   const onSubmit = async (data: CategoryFormData) => {
-    const formData = new FormData();
-    formData.append('name', data.name);
-    formData.append('type', data.type);
+    // Предотвращаем повторную отправку формы
+    if (isSubmitting) {
+      return;
+    }
 
-    if (category) {
-      // Редактирование существующей категории
-      formData.append('id', category.id);
-      const result = await updateCategory(formData);
+    setIsSubmitting(true);
 
-      if (result.error) {
-        toast.error('Ошибка', {
-          description: result.error,
-        });
+    try {
+      const formData = new FormData();
+      formData.append('name', data.name);
+      formData.append('type', data.type);
+
+      if (category) {
+        // Редактирование существующей категории
+        formData.append('id', category.id);
+        const result = await updateCategory(formData);
+
+        if (result.error) {
+          toast.error('Ошибка', {
+            description: result.error,
+          });
+        } else {
+          toast.success('Категория обновлена');
+          onOpenChange(false);
+          form.reset();
+        }
       } else {
-        toast.success('Категория обновлена');
-        onOpenChange(false);
-        form.reset();
-      }
-    } else {
-      // Создание новой категории
-      const result = await createCategory(formData);
+        // Создание новой категории
+        const result = await createCategory(formData);
 
-      if (result.error) {
-        toast.error('Ошибка', {
-          description: result.error,
-        });
-      } else {
-        toast.success('Категория создана');
-        onOpenChange(false);
-        form.reset();
+        if (result.error) {
+          toast.error('Ошибка', {
+            description: result.error,
+          });
+        } else {
+          toast.success('Категория создана');
+          onOpenChange(false);
+          form.reset();
+        }
       }
+    } finally {
+      // Всегда сбрасываем состояние загрузки после завершения операции
+      setIsSubmitting(false);
     }
   };
 
@@ -133,15 +155,15 @@ export function CategoryFormDialog({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-4'>
             <FormField
               control={form.control}
-              name="name"
+              name='name'
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Название категории</FormLabel>
                   <FormControl>
-                    <Input placeholder="Например: Продукты" {...field} />
+                    <Input placeholder='Например: Продукты' {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -150,7 +172,7 @@ export function CategoryFormDialog({
 
             <FormField
               control={form.control}
-              name="type"
+              name='type'
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Тип категории</FormLabel>
@@ -161,12 +183,12 @@ export function CategoryFormDialog({
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Выберите тип" />
+                        <SelectValue placeholder='Выберите тип' />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="income">Доход</SelectItem>
-                      <SelectItem value="expense">Расход</SelectItem>
+                      <SelectItem value='income'>Доход</SelectItem>
+                      <SelectItem value='expense'>Расход</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -176,14 +198,21 @@ export function CategoryFormDialog({
 
             <DialogFooter>
               <Button
-                type="button"
-                variant="outline"
+                type='button'
+                variant='outline'
                 onClick={() => onOpenChange(false)}
+                disabled={isSubmitting} // Отключаем кнопку отмены во время загрузки
               >
                 Отмена
               </Button>
-              <Button type="submit">
-                {category ? 'Сохранить' : 'Создать'}
+              <Button type='submit' disabled={isSubmitting}>
+                {isSubmitting
+                  ? category
+                    ? 'Сохранение...'
+                    : 'Создание...'
+                  : category
+                  ? 'Сохранить'
+                  : 'Создать'}
               </Button>
             </DialogFooter>
           </form>
@@ -192,4 +221,3 @@ export function CategoryFormDialog({
     </Dialog>
   );
 }
-

@@ -13,6 +13,7 @@ import {
 import { ProjectFormDialog } from '@/components/project-form-dialog';
 import { TransactionFormDialog } from '@/components/transaction-form-dialog';
 import { deleteProject, toggleProjectCompletion } from '@/app/projects/actions';
+import { useTransactionDialog } from '@/contexts/transaction-dialog-context';
 import {
   getTransactionFormData,
   confirmScheduledTransaction,
@@ -104,15 +105,12 @@ export function ProjectDetails({
   defaultExchangeRate,
 }: ProjectDetailsProps) {
   const router = useRouter();
+  const { openDialog: openTransactionDialog } = useTransactionDialog();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] =
     useState<Transaction | null>(null);
-  const [transactionType, setTransactionType] = useState<
-    'income' | 'expense' | 'withdrawal'
-  >('income');
   const [transactionFormData, setTransactionFormData] = useState<{
     accounts: Array<{ id: string; name: string; currency: string }>;
     categories: Array<{ id: string; name: string; type: string }>;
@@ -361,8 +359,12 @@ export function ProjectDetails({
   const handleCreateTransaction = (
     type: 'income' | 'expense' | 'withdrawal'
   ) => {
-    setTransactionType(type);
-    setIsTransactionDialogOpen(true);
+    // Используем глобальный контекст для открытия модалки
+    openTransactionDialog({
+      defaultType: type,
+      defaultProjectId: project.id,
+      defaultCounterpartyId: project.counterparty_id,
+    });
   };
 
   // Обработчик редактирования транзакции
@@ -779,24 +781,6 @@ export function ProjectDetails({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Модалка создания транзакции */}
-      {transactionFormData && (
-        <TransactionFormDialog
-          open={isTransactionDialogOpen}
-          onOpenChange={(open) => {
-            setIsTransactionDialogOpen(open);
-            if (!open) {
-              // Обновляем страницу после создания транзакции
-              router.refresh();
-            }
-          }}
-          defaultType={transactionType}
-          defaultProjectId={project.id}
-          defaultCounterpartyId={project.counterparty_id}
-          formData={transactionFormData}
-        />
-      )}
 
       {/* Модалка редактирования транзакции */}
       {transactionFormData && editingTransaction && (

@@ -79,6 +79,7 @@ const transactionSchema = z.object({
   description: z.string().nullable().optional(),
   is_scheduled: z.boolean(),
   scheduled_date: z.date().nullable().optional(),
+  transaction_date: z.date().nullable().optional(), // Дата транзакции (по умолчанию текущая дата)
 });
 
 type TransactionFormData = z.infer<typeof transactionSchema>;
@@ -88,6 +89,7 @@ interface TransactionFormDialogProps {
   onOpenChange: (open: boolean) => void;
   transaction?: Transaction | null;
   defaultType?: 'income' | 'expense' | 'withdrawal';
+  defaultAccountId?: string | null;
   defaultProjectId?: string | null;
   defaultCounterpartyId?: string | null;
   formData?: {
@@ -108,12 +110,14 @@ export function TransactionFormDialog({
   onOpenChange,
   transaction,
   defaultType,
+  defaultAccountId,
   defaultProjectId,
   defaultCounterpartyId,
   formData,
 }: TransactionFormDialogProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // Состояние загрузки для создания/обновления транзакции
   const [tagInput, setTagInput] = useState('');
 
   const form = useForm<TransactionFormData>({
@@ -131,6 +135,7 @@ export function TransactionFormDialog({
       description: null,
       is_scheduled: false,
       scheduled_date: null,
+      transaction_date: new Date(), // По умолчанию текущая дата
     },
   });
 
@@ -195,12 +200,15 @@ export function TransactionFormDialog({
         scheduled_date: transaction.scheduled_date
           ? new Date(transaction.scheduled_date)
           : null,
+        transaction_date: transaction.transaction_date
+          ? new Date(transaction.transaction_date)
+          : new Date(),
       });
       setTagInput('');
     } else if (open) {
       // Обновляем форму только при открытии модалки, если нет транзакции
       form.reset({
-        account_id: '',
+        account_id: defaultAccountId || '',
         category_id: null,
         project_id: defaultProjectId || null,
         counterparty_id: defaultCounterpartyId || null,
@@ -212,12 +220,19 @@ export function TransactionFormDialog({
         description: null,
         is_scheduled: false,
         scheduled_date: null,
+        transaction_date: new Date(), // По умолчанию текущая дата
       });
       setTagInput('');
+    }
+
+    // Сбрасываем состояние загрузки при закрытии диалога
+    if (!open) {
+      setIsSubmitting(false);
     }
   }, [
     transaction,
     defaultType,
+    defaultAccountId,
     defaultProjectId,
     defaultCounterpartyId,
     open,
@@ -233,62 +248,79 @@ export function TransactionFormDialog({
     ) || [];
 
   const onSubmit = async (data: TransactionFormData) => {
-    const formDataObj = new FormData();
-    formDataObj.append('account_id', data.account_id);
-    if (data.category_id) {
-      formDataObj.append('category_id', data.category_id);
-    }
-    if (data.project_id) {
-      formDataObj.append('project_id', data.project_id);
-    }
-    if (data.counterparty_id) {
-      formDataObj.append('counterparty_id', data.counterparty_id);
-    }
-    formDataObj.append('amount', data.amount.toString());
-    // Используем курс обмена только если валюта транзакции отличается от валюты счета
-    const finalExchangeRate = showExchangeRate ? data.exchange_rate : 1;
-    formDataObj.append('exchange_rate', finalExchangeRate.toString());
-    formDataObj.append('type', data.type);
-    formDataObj.append('tags', JSON.stringify(data.tags || []));
-    if (data.description) {
-      formDataObj.append('description', data.description);
-    }
-    formDataObj.append('is_scheduled', data.is_scheduled ? 'true' : 'false');
-    if (data.is_scheduled && data.scheduled_date) {
-      // Форматируем дату в формат YYYY-MM-DD для отправки на сервер
-      const dateStr = format(data.scheduled_date, 'yyyy-MM-dd');
-      formDataObj.append('scheduled_date', dateStr);
+    // Предотвращаем повторную отправку формы
+    if (isSubmitting) {
+      return;
     }
 
-    if (transaction) {
-      // Редактирование существующей транзакции
-      formDataObj.append('id', transaction.id);
-      const result = await updateTransaction(formDataObj);
+    setIsSubmitting(true);
 
-      if (result.error) {
-        toast.error('Ошибка', {
-          description: result.error,
-        });
-      } else {
-        toast.success('Транзакция обновлена');
-        onOpenChange(false);
-        form.reset();
-        setTagInput('');
+    try {
+      const formDataObj = new FormData();
+      formDataObj.append('account_id', data.account_id);
+      if (data.category_id) {
+        formDataObj.append('category_id', data.category_id);
       }
-    } else {
-      // Создание новой транзакции
-      const result = await createTransaction(formDataObj);
-
-      if (result.error) {
-        toast.error('Ошибка', {
-          description: result.error,
-        });
-      } else {
-        toast.success('Транзакция создана');
-        onOpenChange(false);
-        form.reset();
-        setTagInput('');
+      if (data.project_id) {
+        formDataObj.append('project_id', data.project_id);
       }
+      if (data.counterparty_id) {
+        formDataObj.append('counterparty_id', data.counterparty_id);
+      }
+      formDataObj.append('amount', data.amount.toString());
+      // Используем курс обмена только если валюта транзакции отличается от валюты счета
+      const finalExchangeRate = showExchangeRate ? data.exchange_rate : 1;
+      formDataObj.append('exchange_rate', finalExchangeRate.toString());
+      formDataObj.append('type', data.type);
+      formDataObj.append('tags', JSON.stringify(data.tags || []));
+      if (data.description) {
+        formDataObj.append('description', data.description);
+      }
+      formDataObj.append('is_scheduled', data.is_scheduled ? 'true' : 'false');
+      if (data.is_scheduled && data.scheduled_date) {
+        // Форматируем дату в формат YYYY-MM-DD для отправки на сервер
+        const dateStr = format(data.scheduled_date, 'yyyy-MM-dd');
+        formDataObj.append('scheduled_date', dateStr);
+      }
+      if (data.transaction_date) {
+        // Форматируем дату транзакции в формат YYYY-MM-DD для отправки на сервер
+        const dateStr = format(data.transaction_date, 'yyyy-MM-dd');
+        formDataObj.append('transaction_date', dateStr);
+      }
+
+      if (transaction) {
+        // Редактирование существующей транзакции
+        formDataObj.append('id', transaction.id);
+        const result = await updateTransaction(formDataObj);
+
+        if (result.error) {
+          toast.error('Ошибка', {
+            description: result.error,
+          });
+        } else {
+          toast.success('Транзакция обновлена');
+          onOpenChange(false);
+          form.reset();
+          setTagInput('');
+        }
+      } else {
+        // Создание новой транзакции
+        const result = await createTransaction(formDataObj);
+
+        if (result.error) {
+          toast.error('Ошибка', {
+            description: result.error,
+          });
+        } else {
+          toast.success('Транзакция создана');
+          onOpenChange(false);
+          form.reset();
+          setTagInput('');
+        }
+      }
+    } finally {
+      // Всегда сбрасываем состояние загрузки после завершения операции
+      setIsSubmitting(false);
     }
   };
 
@@ -335,7 +367,8 @@ export function TransactionFormDialog({
                 if (firstErrorKey) {
                   const error = errors[firstErrorKey as keyof typeof errors];
                   const errorMessage =
-                    error?.message || 'Пожалуйста, заполните все обязательные поля';
+                    error?.message ||
+                    'Пожалуйста, заполните все обязательные поля';
                   toast.error('Ошибка валидации', {
                     description: errorMessage,
                   });
@@ -558,7 +591,11 @@ export function TransactionFormDialog({
                         onChange={(e) => {
                           const value = e.target.value;
                           // Преобразуем строку в число
-                          if (value === '' || value === null || value === undefined) {
+                          if (
+                            value === '' ||
+                            value === null ||
+                            value === undefined
+                          ) {
                             // Если значение пустое, устанавливаем 0 (валидация сработает при отправке)
                             field.onChange(0);
                           } else {
@@ -638,7 +675,11 @@ export function TransactionFormDialog({
                           onChange={(e) => {
                             const value = e.target.value;
                             // Преобразуем строку в число
-                            if (value === '' || value === null || value === undefined) {
+                            if (
+                              value === '' ||
+                              value === null ||
+                              value === undefined
+                            ) {
                               // Если значение пустое, устанавливаем 1 (значение по умолчанию)
                               field.onChange(1);
                             } else {
@@ -673,6 +714,46 @@ export function TransactionFormDialog({
                         value={field.value || ''}
                       />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='transaction_date'
+                render={({ field }) => (
+                  <FormItem className='flex flex-col'>
+                    <FormLabel>Дата транзакции</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant={'outline'}
+                            className={cn(
+                              'w-full pl-3 text-left font-normal',
+                              !field.value && 'text-muted-foreground'
+                            )}
+                          >
+                            {field.value ? (
+                              format(field.value, 'PPP', { locale: ru })
+                            ) : (
+                              <span>Выберите дату</span>
+                            )}
+                            <CalendarIcon className='ml-auto h-4 w-4 opacity-50' />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className='w-auto p-0' align='start'>
+                        <Calendar
+                          mode='single'
+                          selected={field.value || undefined}
+                          onSelect={field.onChange}
+                          locale={ruDayPicker}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -838,6 +919,7 @@ export function TransactionFormDialog({
                     type='button'
                     variant='destructive'
                     onClick={() => setIsDeleteDialogOpen(true)}
+                    disabled={isSubmitting} // Отключаем кнопку удаления во время загрузки
                   >
                     Удалить
                   </Button>
@@ -846,11 +928,18 @@ export function TransactionFormDialog({
                   type='button'
                   variant='outline'
                   onClick={() => onOpenChange(false)}
+                  disabled={isSubmitting} // Отключаем кнопку отмены во время загрузки
                 >
                   Отмена
                 </Button>
-                <Button type='submit'>
-                  {transaction ? 'Сохранить' : 'Создать'}
+                <Button type='submit' disabled={isSubmitting}>
+                  {isSubmitting
+                    ? transaction
+                      ? 'Сохранение...'
+                      : 'Создание...'
+                    : transaction
+                    ? 'Сохранить'
+                    : 'Создать'}
                 </Button>
               </DialogFooter>
             </form>
